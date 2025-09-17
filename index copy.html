@@ -13,32 +13,39 @@
             align-items: center; 
             height: 100vh; 
         }
+        /* canvas-container 作为定位的基准 */
         #canvas-container { 
             position: relative; 
         }
-        /* 统一为所有 canvas 设置绝对定位 */
+        /* 所有的画布都通过绝对定位重叠在一起 */
         canvas { 
             position: absolute; 
             top: 0; 
             left: 0; 
+            /* 【临时调试样式】 */
+            box-sizing: border-box; /* 让边框不会增加尺寸 */
         }
-        /* 分别控制每个 canvas 的可见性和层级 */
         #game-canvas {
-            visibility: hidden; /* 世界画布必须隐藏 */
+            /* visibility: hidden; */ /* <-- 临时注释掉这行 */
+            border: 2px solid red; /* 给世界画布一个红色边框 */
         }
         #fx-canvas {
-            z-index: 1; /* 特效层在中间 */
+            border: 2px solid green; /* 给特效画布一个绿色边框 */
+            z-index: 1;
         }
         #ui-canvas {
-            z-index: 2; /* UI层在最顶上 */
+            border: 2px solid blue; /* 给UI画布一个蓝色边框 */
+            z-index: 2;
         }
     </style>
 </head>
 <body>
     <div id="canvas-container" style="width: 800px; height: 600px;">
-        <canvas id="game-canvas" width="800" height="600"></canvas>
-        <canvas id="fx-canvas" width="800" height="600"></canvas>
-        <canvas id="ui-canvas" width="800" height="600"></canvas>
+        <canvas id="game-canvas" width="800" height="600" style="visibility: hidden;"></canvas>
+
+        <canvas id="fx-canvas" width="800" height="600" style="z-index: 1;"></canvas>
+        
+        <canvas id="ui-canvas" width="800" height="600" style="z-index: 2;"></canvas>
     </div>
 
     <script id="vertex-shader" type="x-shader/x-vertex">

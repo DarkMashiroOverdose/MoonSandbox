@@ -72,7 +72,8 @@ fn main {
     .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
     .add_system(selection_system, schedule=@system.Schedule::Update)
     .add_system(draw_drag_box_system, schedule=@system.Schedule::Render(2))
-    .add_system(@sprite.render_sprite_system, schedule=@system.Schedule::Render(0))
+    .add_system(@sprite.render_world_system, schedule=@system.Schedule::Render(0)) // 先画世界
+    .add_system(@sprite.render_ui_system, schedule=@system.Schedule::Render(1))    // 再画UI
     .add_system(move_order_system, schedule=@system.Schedule::Update)
     .add_system(aggro_system, schedule=@system.Schedule::Update)
     .add_system(combat_system, schedule=@system.Schedule::Update)
@@ -119,7 +120,11 @@ fn add_unit(pos: @math.Vec2D, team: Team) -> Unit {
   @velocity.velocities.set(new_tank, @math.Vec2D(0.0, 0.0))
   let tank_picture = @sprite.Picture::new(
     @math.Vec2D(64.0, 64.0), "assets/tank.png")
-  let tank_sprite = @sprite.Sprite::from_picture(tank_picture, 100)
+  let tank_sprite = @sprite.Sprite::from_picture(
+    tank_picture, 
+    100, 
+    layer=@sprite.RenderLayer::game_world()
+  )
   @sprite.sprites.set(new_tank, tank_sprite)
   all_units.val.push(new_tank)
 
@@ -132,7 +137,11 @@ fn add_unit(pos: @math.Vec2D, team: Team) -> Unit {
   @position.positions.set(new_selection_box, pos.add(@math.Vec2D(-2.0, -2.0)))
   
   let box_rect_pic = @sprite.Picture::new(@math.Vec2D(68.0, 68.0), "assets/selection_box.png")
-  let box_sprite_visible = @sprite.Sprite::from_picture(box_rect_pic, 200)
+  let box_sprite_visible = @sprite.Sprite::from_picture(
+    box_rect_pic, 
+    200,
+    layer=@sprite.RenderLayer::ui(),
+    )
   let box_sprite_invisible = { ..box_sprite_visible, visible: false }
   @sprite.sprites.set(new_selection_box, box_sprite_invisible)
 
@@ -157,8 +166,16 @@ fn add_unit(pos: @math.Vec2D, team: Team) -> Unit {
   let fg_color_rect = @sprite.ColorRect::new(@math.Vec2D(HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT), "lime")
 
   // zindex: 坦克是100，选中框是200。血条在它们之间，比如背景110，前景111
-  let bg_sprite = @sprite.Sprite::from_color_rect(bg_color_rect, 110)
-  let fg_sprite = @sprite.Sprite::from_color_rect(fg_color_rect, 111)
+  let bg_sprite = @sprite.Sprite::from_color_rect(
+    bg_color_rect, 
+    110,
+    layer=@sprite.RenderLayer::ui(), // <-- 添加这行
+  )
+  let fg_sprite = @sprite.Sprite::from_color_rect(
+    fg_color_rect, 
+    111,
+    layer=@sprite.RenderLayer::ui(), // <-- 添加这行
+  )
   
   @sprite.sprites.set(bar_bg, bg_sprite)
   @sprite.sprites.set(bar_fg, fg_sprite)
@@ -480,7 +497,12 @@ fn update_health_bars_system(_backend: &@system.Backend) -> Unit {
               
               // 2. 【核心修正】调用构造函数创建一个全新的 Sprite
               // 我们从旧 sprite 中继承 zindex 和 offset
-              let new_fg_sprite = @sprite.Sprite::from_color_rect(new_rect, fg_sprite.zindex, offset=fg_sprite.offset)
+              let new_fg_sprite = @sprite.Sprite::from_color_rect(
+                new_rect, 
+                fg_sprite.zindex, 
+                offset=fg_sprite.offset,
+                layer=fg_sprite.layer, // <-- 加上这一行
+                )
               
               // 3. 将新 Sprite 设置回去。set 操作返回 Unit
               @sprite.sprites.set(health.bar_fg_entity, new_fg_sprite)

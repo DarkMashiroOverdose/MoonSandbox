@@ -1,8 +1,12 @@
 {
   "name": "SuYiTao-SYT/MoonSandbox",
   "deps": {
-    "Milky2018/selene": "0.13.4",
-    "Milky2018/selene-canvas": "0.13.4"
+    "Milky2018/selene": {
+      "path": "../selene/selene-core"
+    },
+    "Milky2018/selene-canvas": {
+      "path": "../selene/selene-canvas"
+    }
   },
   "readme": "README.md",
   "repository": "",
