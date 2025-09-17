@@ -1,0 +1,16 @@
+{
+  "name": "SuYiTao-SYT/moonRTS",
+  "deps": {
+    "Milky2018/selene": "0.13.4",
+    "Milky2018/selene-canvas": "0.13.4"
+  },
+  "readme": "README.md",
+  "repository": "",
+  "license": "Apache-2.0",
+  "keywords": [
+    "Game Engine"
+  ],
+  "description": "",
+  "source": "src",
+  "preferred-target": "js"
+}

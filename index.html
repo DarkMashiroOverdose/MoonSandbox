@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>RTS Game</title>
+    <script src="/target/js/release/build/moonRTS.js" defer></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <script>
+        // 获取我们的游戏画布元素
+        const canvas = document.getElementById('canvas');
+
+        // 为画布添加一个 "contextmenu" 事件监听器 (这就是右键菜单事件)
+        canvas.addEventListener('contextmenu', function(event) {
+            // 当右键点击事件发生时，调用 preventDefault() 来阻止浏览器的默认行为
+            event.preventDefault();
+        });
+    </script>
+    </body>
+</html>
