@@ -35,18 +35,7 @@ let combat_stats: Map[@system.Entity, CombatStats] = Map::new()
 // 新增：用于存储“谁正在攻击谁”的 Map
 // Key: 攻击者, Value: 被攻击的目标
 let attack_targets: Map[@system.Entity, @system.Entity] = Map::new()
-struct Health {
-  current: Double
-  max: Double
-  // 新增：用来存储血条背景和前景的实体
-  bar_bg_entity: @system.Entity
-  bar_fg_entity: @system.Entity
-}
-let healths: Map[@system.Entity, Health] = Map::new()
-// 我们可以定义一个专门用于避障的组件
-const HEALTH_BAR_WIDTH: Double = 50.0
-const HEALTH_BAR_HEIGHT: Double = 5.0
-const HEALTH_BAR_Y_OFFSET: Double = 1.0
+
 struct AvoidanceBehavior {
   unit_radius: Double
   avoidance_radius: Double
@@ -94,14 +83,14 @@ fn init_game(backend: &@system.Backend) -> Unit {
   backend.preload_img("assets/tank.png")
   add_map()
   
-  add_unit(@math.Vec2D(350.0, 500.0), Team::Player)
-  add_unit(@math.Vec2D(400.0, 500.0), Team::Player)
-  add_unit(@math.Vec2D(450.0, 500.0), Team::Player)
+  add_new_tank(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_tank(@math.Vec2D(400.0, 500.0), Team::Player)
+  add_new_tank(@math.Vec2D(450.0, 500.0), Team::Player)
   
   // 创建敌方单位，放在地图另一侧
-  add_unit(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  add_unit(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  add_unit(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  add_new_tank(@math.Vec2D(400.0, 100.0), Team::Enemy)
+  add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
   
 }
 
@@ -113,91 +102,7 @@ fn add_map() -> Unit {
   let map_sprite = @sprite.Sprite::from_picture(map_picture, 0)
   @sprite.sprites.set(map_entity, map_sprite)
 }
-fn add_unit(pos: @math.Vec2D, team: Team) -> Unit {
-  // --- 您已有的代码 (保持不变) ---
-  let new_tank = @system.Entity::new()
-  @position.positions.set(new_tank, pos)
-  @velocity.velocities.set(new_tank, @math.Vec2D(0.0, 0.0))
-  let tank_picture = @sprite.Picture::new(
-    @math.Vec2D(64.0, 64.0), "assets/tank.png")
-  let tank_sprite = @sprite.Sprite::from_picture(
-    tank_picture, 
-    100, 
-    layer=@sprite.RenderLayer::game_world()
-  )
-  @sprite.sprites.set(new_tank, tank_sprite)
-  all_units.val.push(new_tank)
 
-  avoidance_behaviors.set(new_tank, {
-    unit_radius: 32.0,
-    avoidance_radius: 60.0,
-  })
-
-  let new_selection_box = @system.Entity::new()
-  @position.positions.set(new_selection_box, pos.add(@math.Vec2D(-2.0, -2.0)))
-  
-  let box_rect_pic = @sprite.Picture::new(@math.Vec2D(68.0, 68.0), "assets/selection_box.png")
-  let box_sprite_visible = @sprite.Sprite::from_picture(
-    box_rect_pic, 
-    200,
-    layer=@sprite.RenderLayer::ui(),
-    )
-  let box_sprite_invisible = { ..box_sprite_visible, visible: false }
-  @sprite.sprites.set(new_selection_box, box_sprite_invisible)
-
-  unit_to_selection_box.set(new_tank, new_selection_box)
-
-  // --- 在这里追加创建血条和Health组件的逻辑 ---
-  
-  // 1. 创建血条实体
-  let bar_bg = @system.Entity::new() // 背景（红色）
-  let bar_fg = @system.Entity::new() // 前景（绿色）
-
-  // 2. 计算血条的初始位置
-  let bar_pos = @math.Vec2D(
-    pos[X] + 32.0 - HEALTH_BAR_WIDTH / 2.0, // 单位中心点X - 血条宽度一半
-    pos[Y] - HEALTH_BAR_Y_OFFSET
-  )
-  @position.positions.set(bar_bg, bar_pos)
-  @position.positions.set(bar_fg, bar_pos)
-
-  // 3. 创建 ColorRect 和对应的 Sprite
-  let bg_color_rect = @sprite.ColorRect::new(@math.Vec2D(HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT), "red")
-  let fg_color_rect = @sprite.ColorRect::new(@math.Vec2D(HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT), "lime")
-
-  // zindex: 坦克是100，选中框是200。血条在它们之间，比如背景110，前景111
-  let bg_sprite = @sprite.Sprite::from_color_rect(
-    bg_color_rect, 
-    110,
-    layer=@sprite.RenderLayer::ui(), // <-- 添加这行
-  )
-  let fg_sprite = @sprite.Sprite::from_color_rect(
-    fg_color_rect, 
-    111,
-    layer=@sprite.RenderLayer::ui(), // <-- 添加这行
-  )
-  
-  @sprite.sprites.set(bar_bg, bg_sprite)
-  @sprite.sprites.set(bar_fg, fg_sprite)
-  
-  // 4. 创建 Health 组件并与单位关联
-  healths.set(new_tank, { 
-    current: 100.0, 
-    max: 100.0,
-    bar_bg_entity: bar_bg,
-    bar_fg_entity: bar_fg,
-  })
-
-  combat_stats.set(new_tank, {
-    attack_range: 65.0,    // 攻击范围 150 像素
-    attack_damage: 10.0,    // 每次攻击造成 10 点伤害
-    attack_cooldown: 0.5,   // 每 1.5 秒攻击一次
-    current_cooldown: 0.0,  // 初始冷却为0，可以立即攻击
-    aggro_range: 300.0, // 【新增】警戒范围设为300像素
-  })
-
-  teams.set(new_tank, team)
-}
 // ---------------------------------
 //  系统 (Systems)
 // ---------------------------------
@@ -231,7 +136,6 @@ fn selection_system(_backend: &@system.Backend) -> Unit {
     let drag_end_pos = @system.mouse.pos
     let start_pos = drag_start_pos.val
 
-    // 修正：使用我们自己写的 min_double 和 max_double
     let top_left_x = min_double(start_pos[X], drag_end_pos[X])
     let top_left_y = min_double(start_pos[Y], drag_end_pos[Y])
     let bottom_right_x = max_double(start_pos[X], drag_end_pos[X])
@@ -464,57 +368,8 @@ fn draw_drag_box_system(backend: &@system.Backend) -> Unit {
     backend.draw_stroke_rect(x=x, y=y, width=width, height=height, color="cyan")
   }
 }
-fn min_double(a: Double, b: Double) -> Double {
-  if a < b { a } else { b }
-}
-
-fn max_double(a: Double, b: Double) -> Double {
-  if a > b { a } else { b }
-}
 
 const AVOIDANCE_STRENGTH: Double = 4
-
-fn update_health_bars_system(_backend: &@system.Backend) -> Unit {
-  for unit in healths.keys() {
-    if @position.positions.get(unit) is Some(unit_pos) {
-      if healths.get(unit) is Some(health) {
-        // 更新血条位置 (这部分逻辑不变)
-        let bar_pos = @math.Vec2D(
-          unit_pos.0[X] + 32.0 - HEALTH_BAR_WIDTH / 2.0,
-          unit_pos.0[Y] - HEALTH_BAR_Y_OFFSET
-        )
-        @position.positions.set(health.bar_bg_entity, bar_pos)
-        @position.positions.set(health.bar_fg_entity, bar_pos)
-
-        // 更新前景条宽度
-        let health_percentage = health.current / health.max
-        if @sprite.sprites.get(health.bar_fg_entity) is Some(fg_sprite) {
-          match fg_sprite.sprite_type {
-            ColorRect(rect) => {
-              // 1. 创建一个具有新尺寸的 ColorRect
-              let new_rect_size = @math.Vec2D(HEALTH_BAR_WIDTH * health_percentage, HEALTH_BAR_HEIGHT)
-              let new_rect = { ..rect, size: new_rect_size }
-              
-              // 2. 【核心修正】调用构造函数创建一个全新的 Sprite
-              // 我们从旧 sprite 中继承 zindex 和 offset
-              let new_fg_sprite = @sprite.Sprite::from_color_rect(
-                new_rect, 
-                fg_sprite.zindex, 
-                offset=fg_sprite.offset,
-                layer=fg_sprite.layer, // <-- 加上这一行
-                )
-              
-              // 3. 将新 Sprite 设置回去。set 操作返回 Unit
-              @sprite.sprites.set(health.bar_fg_entity, new_fg_sprite)
-            }
-            // 4. 【核心修正】显式返回 Unit () 来匹配类型
-            _ => ()
-          }
-        }
-      }
-    }
-  }
-}
 
 fn combat_system(_backend: &@system.Backend) -> Unit {
   let delta_seconds = 1.0 / 60.0
