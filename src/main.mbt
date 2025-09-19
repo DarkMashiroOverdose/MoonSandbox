@@ -9,9 +9,6 @@ let game_state: GameState = { selected_entities: [] }
 let destinations: Map[@system.Entity, @math.Vec2D] = Map::new()
 let all_units: Ref[Array[@system.Entity]] = Ref::new([])
 
-// 一个 Map，用于存储每个作战单位 (key) 和它对应的选中框 (value)
-let unit_to_selection_box: Map[@system.Entity, @system.Entity] = Map::new()
-
 let is_dragging: Ref[Bool] = Ref::new(false) // 记录是否正在拖动
 let drag_start_pos: Ref[@math.Vec2D] = Ref::new(@math.Vec2D(0.0, 0.0)) // 记录拖动起始点
 
@@ -21,20 +18,6 @@ let avoidance_behaviors: Map[@system.Entity, AvoidanceBehavior] = Map::new()
 const FORMATION_SPACING: Double = 50.0 // 单位在队列中的间距
 let entities_to_cleanup: Ref[Array[@system.Entity]] = Ref::new([])
 const ENEMY_PUSH_FACTOR: Double = 3.0 // 敌我单位间的推力系数
-struct CombatStats {
-  attack_range: Double    // 攻击范围
-  attack_damage: Double   // 攻击伤害
-  attack_cooldown: Double // 攻击间隔（秒）
-  current_cooldown: Double // 当前的攻击冷却计时器
-  aggro_range: Double // 【新增】警戒范围
-}
-
-// 用 Map 存储拥有该组件的实体
-let combat_stats: Map[@system.Entity, CombatStats] = Map::new()
-
-// 新增：用于存储“谁正在攻击谁”的 Map
-// Key: 攻击者, Value: 被攻击的目标
-let attack_targets: Map[@system.Entity, @system.Entity] = Map::new()
 
 struct AvoidanceBehavior {
   unit_radius: Double
@@ -60,7 +43,6 @@ fn main {
     .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
     .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
     .add_system(selection_system, schedule=@system.Schedule::Update)
-    .add_system(draw_drag_box_system, schedule=@system.Schedule::Render(2))
     .add_system(@sprite.render_world_system, schedule=@system.Schedule::Render(0)) // 先画世界
     .add_system(@sprite.render_ui_system, schedule=@system.Schedule::Render(1))    // 再画UI
     .add_system(move_order_system, schedule=@system.Schedule::Update)
@@ -106,23 +88,6 @@ fn add_map() -> Unit {
 // ---------------------------------
 //  系统 (Systems)
 // ---------------------------------
-fn update_selection_boxes_system(_backend: &@system.Backend) -> Unit {
-  unit_to_selection_box.each(fn(unit, box_entity) {
-    let is_selected = game_state.selected_entities.contains(unit)
-    
-    if @sprite.sprites.get(box_entity) is Some(sprite) {
-      // 修正 #2: 使用正确的结构体更新语法
-      let new_sprite = { ..sprite, visible: is_selected }
-      @sprite.sprites.set(box_entity, new_sprite)
-      
-      if is_selected {
-        if @position.positions.get(unit) is Some(unit_pos) {
-          @position.positions.set(box_entity, unit_pos.0.add(@math.Vec2D(-2.0, -2.0)))
-        }
-      }
-    }
-  })
-}
 
 // (selection_system, move_order_system 等函数保持原样，无需修改)
 fn selection_system(_backend: &@system.Backend) -> Unit {
@@ -224,46 +189,7 @@ fn move_order_system(_backend: &@system.Backend) -> Unit {
 fn min_int(a: Int, b: Int) -> Int {
   if a < b { a } else { b }
 }
-fn aggro_system(_backend: &@system.Backend) -> Unit {
-  // 遍历所有单位 (不再只关心玩家)
-  for unit_a in all_units.val {
-    // 检查单位 a 是否空闲，并且获取它的阵营
-    let is_idle = attack_targets.get(unit_a) is None && destinations.get(unit_a) is None
-    if is_idle && teams.get(unit_a) is Some(team_a) {
 
-      let mut closest_target = None
-      let mut min_distance = 99999.0
-
-      if @position.positions.get(unit_a) is Some(pos_a) {
-        // 再次遍历所有单位，寻找一个不同阵营的目标
-        for unit_b in all_units.val {
-          if teams.get(unit_b) is Some(team_b) {
-
-            // 【核心修正】只要阵营不同，就是潜在目标！
-            if team_a != team_b {
-              if @position.positions.get(unit_b) is Some(pos_b) {
-                let distance = pos_a.0.distance_to(pos_b.0)
-
-                if combat_stats.get(unit_a) is Some(stats) && 
-                   distance < stats.aggro_range && 
-                   distance < min_distance {
-
-                  min_distance = distance
-                  closest_target = Some(unit_b)
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if closest_target is Some(target) {
-        println("[Log] Aggro System: Unit \{unit_a} (\{team_a}) auto-targeting \{target}")
-        attack_targets.set(unit_a, target)
-      }
-    }
-  }
-}
 // ---------------------------------
 //  全新的定位系统 (融合了移动和避障)
 // ---------------------------------
@@ -350,81 +276,10 @@ fn apply_velocity_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
-fn draw_drag_box_system(backend: &@system.Backend) -> Unit {
-  if is_dragging.val {
-    let start_pos = drag_start_pos.val
-    let current_pos = @system.mouse.pos
-
-    let camera_pos = @camera.get_position()
-    let screen_start_pos = start_pos - camera_pos
-    let screen_current_pos = current_pos - camera_pos
-
-    // 修正：使用我们自己写的 min_double
-    let x = min_double(screen_start_pos[X], screen_current_pos[X])
-    let y = min_double(screen_start_pos[Y], screen_current_pos[Y])
-    let width = (start_pos[X] - current_pos[X]).abs()
-    let height = (start_pos[Y] - current_pos[Y]).abs()
-
-    backend.draw_stroke_rect(x=x, y=y, width=width, height=height, color="cyan")
-  }
-}
 
 const AVOIDANCE_STRENGTH: Double = 4
 
-fn combat_system(_backend: &@system.Backend) -> Unit {
-  let delta_seconds = 1.0 / 60.0
 
-  // --- 阶段一：更新冷却 ---
-  for unit in combat_stats.keys() {
-    if combat_stats.get(unit) is Some(stats) {
-      if stats.current_cooldown > 0.0 {
-        let new_cooldown = stats.current_cooldown - delta_seconds
-        combat_stats.set(unit, { ..stats, current_cooldown: new_cooldown })
-      }
-    }
-  }
-
-  // --- 阶段二：处理攻击 ---
-  attack_targets.each(fn(attacker, target) {
-    if target.is_alive() && healths.get(target) is Some(_) {
-      if combat_stats.get(attacker) is Some(attacker_stats) && 
-         @position.positions.get(attacker) is Some(attacker_pos) &&
-         @position.positions.get(target) is Some(target_pos) {
-
-        let distance = attacker_pos.0.distance_to(target_pos.0)
-        if distance > attacker_stats.attack_range {
-          destinations.set(attacker, target_pos.0)
-        } else {
-          destinations.remove(attacker)
-          //@velocity.velocities.set(attacker, @math.Vec2D(0.0, 0.0))
-          if attacker_stats.current_cooldown <= 0.0 {
-            combat_stats.set(attacker, { ..attacker_stats, current_cooldown: attacker_stats.attack_cooldown })
-            if healths.get(target) is Some(target_health) {
-               let new_current_health = target_health.current - attacker_stats.attack_damage
-               let new_health_component = { ..target_health, current: new_current_health }
-               healths.set(target, new_health_component)
-            }
-          }
-        }
-      }
-    } else {
-      attack_targets.remove(attacker)
-    }
-  })
-
-  // --- 阶段三：判定死亡单位，并将其加入“垃圾回收”列表 ---
-  for unit in all_units.val {
-    // 检查单位是否还“活着”（未被标记为destroy），并且血量已耗尽
-    if unit.is_alive() {
-      if healths.get(unit) is Some(health) && health.current <= 0.0 {
-        // 只提交死亡名单，不做任何清理！
-        entities_to_cleanup.val.push(unit)
-        // 标记为死亡后，为了防止重复添加，可以先将其血量设为一个特殊值
-        healths.set(unit, {..health, current: -1.0})
-      }
-    }
-  }
-}
 // ---------------------------------
 //  全新的清理系统
 // ---------------------------------

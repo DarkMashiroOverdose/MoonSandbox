@@ -1,6 +1,8 @@
 /// ------------------------
 /// UI实体的定义与更新
 /// ------------------------
+//每个作战单位和它对应的选中框
+let unit_to_selection_box: Map[@system.Entity, @system.Entity] = Map::new()
 fn attach_selection_box(
   parent_unit: @system.Entity, 
   parent_pos: @math.Vec2D, 
@@ -37,6 +39,25 @@ fn attach_selection_box(
   // 返回创建好的选择框实体
   return new_selection_box
 }
+/// 更新所有选择框的显示状态和位置
+fn update_selection_boxes_system(_backend: &@system.Backend) -> Unit {
+  unit_to_selection_box.each(fn(unit, box_entity) {
+    let is_selected = game_state.selected_entities.contains(unit)
+    
+    if @sprite.sprites.get(box_entity) is Some(sprite) {
+      let new_sprite = { ..sprite, visible: is_selected }
+      @sprite.sprites.set(box_entity, new_sprite)
+      
+      if is_selected {
+        if @position.positions.get(unit) is Some(unit_pos) {
+          
+          @position.positions.set(box_entity, unit_pos.0.add(@math.Vec2D(-2.0, -2.0)))
+        }
+      }
+    }
+  })
+}
+
 
 ///----------------
 ///血条

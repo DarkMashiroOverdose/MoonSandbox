@@ -49,8 +49,8 @@ fn add_new_tank(pos: @math.Vec2D, team: Team) -> Unit {
     attack_cooldown: 0.5,
     current_cooldown: 0.0,
     aggro_range: 300.0,
+    attack_type: AttackType::Melee, // 攻击类型设为近战
   })
-
   // 6. 设置阵营
   teams.set(new_tank, team)
 }
