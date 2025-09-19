@@ -1,4 +1,6 @@
-
+/// ------------------------
+/// 战斗与寻敌系统
+/// ------------------------
 // 用 Map 存储拥有该组件的实体
 let combat_stats: Map[@system.Entity, CombatStats] = Map::new()
 
@@ -13,6 +15,7 @@ pub struct CombatStats {
   pub current_cooldown: Double
   pub aggro_range: Double
   pub attack_type: AttackType // 【新增】攻击类型
+  pub aoe_radius: Double 
 }
 
 pub enum AttackType {
@@ -57,14 +60,14 @@ fn combat_system(_backend: &@system.Backend) -> Unit {
                 execute_melee_attack(attacker, target, attacker_stats)
               }
               AttackType::Bullet => {
-                spawn_projectile(attacker, target, attacker_stats)
+                execute_bullet_attack(attacker, target, attacker_stats)
               }
               AttackType::Ranged => {
                 //TODO: 实现远程瞬间伤害逻辑
                 println("[Log] Ranged Attack not implemented yet.")
               }
               AttackType::AoE => {
-                //TODO: 实现范围伤害逻辑
+                execute_aoe_melee_attack(attacker, attacker_stats)
                 println("[Log] AoE Attack not implemented yet.")
               }
             }
@@ -129,18 +132,56 @@ fn aggro_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
-
+fn execute_aoe_melee_attack(attacker: @system.Entity, stats: CombatStats) -> Unit {
+  if @position.positions.get(attacker) is Some(attacker_pos) && teams.get(attacker) is Some(attacker_team) {
+    println("[Log] Executing AoE Melee Attack from \{attacker}")
+    
+    let damage = stats.attack_damage
+    effect_apply_aoe_damage(attacker_pos.0, stats.aoe_radius, stats.attack_damage, attacker_team)
+  }
+}
+/// ------------------------
+/// 伤害与战斗模块
+/// ------------------------
+fn apply_damage(target: @system.Entity, damage: Double) -> Unit {
+  if healths.get(target) is Some(health) {
+    let new_health = { ..health, current: health.current - damage }
+    healths.set(target, new_health)
+  }
+}
 fn execute_melee_attack(attacker: @system.Entity, target: @system.Entity, stats: CombatStats) -> Unit {
   println("[Log] Executing Melee Attack from \{attacker} to \{target}")
-  if healths.get(target) is Some(target_health) {
-     let new_current_health = target_health.current - stats.attack_damage
-     let new_health_component = { ..target_health, current: new_current_health }
-     healths.set(target, new_health_component)
+  effect_apply_single_target_damage(target, stats.attack_damage)
+}
+
+fn effect_apply_single_target_damage(target: @system.Entity, damage: Double) -> Unit {
+  // 这个逻辑其实就是 apply_damage，我们可以直接复用它
+  apply_damage(target, damage)
+}
+
+/// 效果函数2：以某个点为中心，对范围内的敌方单位造成伤害
+fn effect_apply_aoe_damage(
+  origin_pos: @math.Vec2D, 
+  radius: Double, 
+  damage: Double, 
+  source_team: Team
+) -> Unit {
+  // 遍历所有单位，检查是否在范围内且为敌方
+  for unit in all_units.val {
+    // 检查单位是否为敌方
+    if teams.get(unit) is Some(unit_team) && unit_team != source_team {
+      if @position.positions.get(unit) is Some(unit_pos) {
+        // 检查是否在伤害半径内
+        if unit_pos.0.distance_to(origin_pos) <= radius {
+          apply_damage(unit, damage)
+        }
+      }
+    }
   }
 }
 
-// 使用子弹进行远程攻击
-fn spawn_projectile(attacker: @system.Entity, target: @system.Entity, stats: CombatStats) -> Unit {
-  //占位符
-  println("[Log] Spawning Projectile from \{attacker} to \{target}")
+/// 效果函数3：对单个目标施加 Debuff (当前为占位符)
+fn effect_apply_debuff(target: @system.Entity, effect: DebuffType, duration: Double) -> Unit {
+  // 直接调用简化的 apply_debuff 占位符函数
+  apply_debuff(target, effect, duration)
 }

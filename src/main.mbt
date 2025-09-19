@@ -49,6 +49,9 @@ fn main {
     .add_system(aggro_system, schedule=@system.Schedule::Update)
     .add_system(combat_system, schedule=@system.Schedule::Update)
     .add_system(positioning_system, schedule=@system.Schedule::Update)
+    .add_system(projectile_system, schedule=@system.Schedule::Update) 
+    .add_system(debuff_system, schedule=@system.Schedule::Update)     
+    .add_system(cleanup_effects_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_key_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_mouse_system, schedule=@system.Schedule::Update)
     
@@ -70,9 +73,11 @@ fn init_game(backend: &@system.Backend) -> Unit {
   add_new_tank(@math.Vec2D(450.0, 500.0), Team::Player)
   
   // 创建敌方单位，放在地图另一侧
-  add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   add_new_tank(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  add_new_soldier(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  add_new_soldier(@math.Vec2D(500.0, 100.0), Team::Enemy)
   
 }
 

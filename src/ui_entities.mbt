@@ -30,7 +30,7 @@ fn attach_selection_box(
   let box_sprite_visible = @sprite.Sprite::from_shape(
     selection_box_graphic, 
     200, 
-    //offset=@math.Vec2D(box_size[X] / -2.0, box_size[Y] / -2.0),
+    offset=@math.Vec2D(box_size[X] / -2.0, box_size[Y] / -2.0),
     layer=@sprite.RenderLayer::ui(),
   )
   let box_sprite_invisible = { ..box_sprite_visible, visible: false }
@@ -51,7 +51,7 @@ fn update_selection_boxes_system(_backend: &@system.Backend) -> Unit {
       if is_selected {
         if @position.positions.get(unit) is Some(unit_pos) {
           
-          @position.positions.set(box_entity, unit_pos.0.add(@math.Vec2D(-2.0, -2.0)))
+          @position.positions.set(box_entity, unit_pos.0.add(@math.Vec2D(0.0, 0.0)))
         }
       }
     }
@@ -72,7 +72,7 @@ struct Health {
 let healths: Map[@system.Entity, Health] = Map::new()
 const HEALTH_BAR_WIDTH: Double = 50.0
 const HEALTH_BAR_HEIGHT: Double = 5.0
-const HEALTH_BAR_Y_OFFSET: Double = 1.0
+const HEALTH_BAR_Y_OFFSET: Double = 3.0
 
 //为单位附加血条
 fn attach_health_bar() -> (@system.Entity, @system.Entity) {
@@ -96,13 +96,21 @@ fn attach_health_bar() -> (@system.Entity, @system.Entity) {
 
 fn update_health_bars_system(_backend: &@system.Backend) -> Unit {
   for unit in healths.keys() {
-    if @position.positions.get(unit) is Some(unit_pos) {
+    if @position.positions.get(unit) is Some(unit_pos) && 
+       @sprite.sprites.get(unit) is Some(unit_sprite){
       if healths.get(unit) is Some(health) {
         // 更新血条位置
-        let bar_pos = @math.Vec2D(
-          unit_pos.0[X] + 32.0 - HEALTH_BAR_WIDTH / 2.0,
-          unit_pos.0[Y] - HEALTH_BAR_Y_OFFSET
-        )
+        let (unit_width, unit_height) = match unit_sprite.sprite_type {
+        Picture(pic) => (pic.size[X], pic.size[Y])
+        Animation(anim, ..) => (anim.frames[0].size[X], anim.frames[0].size[Y])
+        ColorRect(rect) => (rect.size[X], rect.size[Y])
+        _ => (64.0, 64.0) // 提供一个默认尺寸
+      }
+
+        let bar_width = unit_width * 1.0
+        let bar_pos_x = unit_pos.0[X] - bar_width / 2.0
+        let bar_pos_y = unit_pos.0[Y] - (unit_height / 2.0) - HEALTH_BAR_Y_OFFSET
+        let bar_pos = @math.Vec2D(bar_pos_x, bar_pos_y)
         @position.positions.set(health.bar_bg_entity, bar_pos)
         @position.positions.set(health.bar_fg_entity, bar_pos)
 
@@ -112,7 +120,7 @@ fn update_health_bars_system(_backend: &@system.Backend) -> Unit {
           match fg_sprite.sprite_type {
             ColorRect(rect) => {
               //创建一个具有新尺寸的 ColorRect
-              let new_rect_size = @math.Vec2D(HEALTH_BAR_WIDTH * health_percentage, HEALTH_BAR_HEIGHT)
+              let new_rect_size = @math.Vec2D(bar_width * health_percentage, HEALTH_BAR_HEIGHT)
               let new_rect = { ..rect, size: new_rect_size }
               
               //继承 zindex 和 offset
@@ -128,6 +136,17 @@ fn update_health_bars_system(_backend: &@system.Backend) -> Unit {
             //匹配类型
             _ => ()
           }
+        }
+      if @sprite.sprites.get(health.bar_bg_entity) is Some(bg_sprite) {
+         match bg_sprite.sprite_type {
+          ColorRect(rect) => {
+            let new_size = @math.Vec2D(bar_width, HEALTH_BAR_HEIGHT)
+            let new_rect = { ..rect, size: new_size }
+            let new_sprite = @sprite.Sprite::from_color_rect(new_rect, bg_sprite.zindex, offset=bg_sprite.offset, layer=bg_sprite.layer)
+            @sprite.sprites.set(health.bar_bg_entity, new_sprite)
+          }
+          _ => ()
+        }
         }
       }
     }
