@@ -9,13 +9,13 @@ let combat_stats: Map[@system.Entity, CombatStats] = Map::new()
 let attack_targets: Map[@system.Entity, @system.Entity] = Map::new()
 
 pub struct CombatStats {
-  pub attack_range: Double
-  pub attack_damage: Double
-  pub attack_cooldown: Double
-  pub current_cooldown: Double
-  pub aggro_range: Double
-  pub attack_type: AttackType // 【新增】攻击类型
-  pub aoe_radius: Double 
+  attack_range: Double
+  attack_damage: Double
+  attack_cooldown: Double
+  current_cooldown: Double
+  aggro_range: Double
+  attack_type: AttackType
+  aoe_radius: Double
 }
 
 pub enum AttackType {
@@ -93,41 +93,64 @@ fn combat_system(_backend: &@system.Backend) -> Unit {
 }
 
 fn aggro_system(_backend: &@system.Backend) -> Unit {
-  // 遍历所有单位
   for unit_a in all_units.val {
-    // 检查单位 a 是否空闲，并且获取它的阵营
-    let is_idle = attack_targets.get(unit_a) is None && destinations.get(unit_a) is None
-    if is_idle && teams.get(unit_a) is Some(team_a) {
+    // 检查单位 a 是否还活着，并获取它的阵营
+    if unit_a.is_alive() && teams.get(unit_a) is Some(team_a) {
+      
+      // 【核心修正】根据阵营，执行不同的索敌逻辑
+      if team_a == Team::Player {
+        // --- 玩家单位的索敌逻辑 ---
+        // 玩家单位（车头和车厢）只要没有当前目标，就应该立刻寻找新目标，无论是否在移动
+        if attack_targets.get(unit_a) is None {
+          let mut closest_target = None
+          let mut min_distance = 99999.0
 
-      let mut closest_target = None
-      let mut min_distance = 99999.0
-
-      if @position.positions.get(unit_a) is Some(pos_a) {
-        // 再次遍历所有单位，寻找一个不同阵营的目标
-        for unit_b in all_units.val {
-          if teams.get(unit_b) is Some(team_b) {
-
-            // 【核心修正】只要阵营不同，就是潜在目标！
-            if team_a != team_b {
-              if @position.positions.get(unit_b) is Some(pos_b) {
-                let distance = pos_a.0.distance_to(pos_b.0)
-
-                if combat_stats.get(unit_a) is Some(stats) && 
-                   distance < stats.aggro_range && 
-                   distance < min_distance {
-
-                  min_distance = distance
-                  closest_target = Some(unit_b)
+          if @position.positions.get(unit_a) is Some(pos_a) {
+            for unit_b in all_units.val {
+              if teams.get(unit_b) is Some(Team::Enemy) {
+                if @position.positions.get(unit_b) is Some(pos_b) {
+                  let distance = pos_a.0.distance_to(pos_b.0)
+                  if combat_stats.get(unit_a) is Some(stats) && 
+                     distance < stats.aggro_range && 
+                     distance < min_distance {
+                    min_distance = distance
+                    closest_target = Some(unit_b)
+                  }
                 }
               }
             }
           }
+          if closest_target is Some(target) {
+            attack_targets.set(unit_a, target)
+          }
         }
-      }
-
-      if closest_target is Some(target) {
-        println("[Log] Aggro System: Unit \{unit_a} (\{team_a}) auto-targeting \{target}")
-        attack_targets.set(unit_a, target)
+      } else if team_a == Team::Enemy {
+        // --- 敌人单位的索敌逻辑 (保持原样) ---
+        // 敌人只有在空闲时才会寻找新目标
+        let is_idle = attack_targets.get(unit_a) is None && destinations.get(unit_a) is None
+        if is_idle {
+          let mut closest_target = None
+          let mut min_distance = 99999.0
+          // ... (这部分寻找最近目标的逻辑和上面玩家的完全一样) ...
+          if @position.positions.get(unit_a) is Some(pos_a) {
+             for unit_b in all_units.val {
+                if teams.get(unit_b) is Some(Team::Player) {
+                  if @position.positions.get(unit_b) is Some(pos_b) {
+                    let distance = pos_a.0.distance_to(pos_b.0)
+                    if combat_stats.get(unit_a) is Some(stats) && 
+                       distance < stats.aggro_range && 
+                       distance < min_distance {
+                      min_distance = distance
+                      closest_target = Some(unit_b)
+                    }
+                  }
+                }
+             }
+          }
+          if closest_target is Some(target) {
+            attack_targets.set(unit_a, target)
+          }
+        }
       }
     }
   }

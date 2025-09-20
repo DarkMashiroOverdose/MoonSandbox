@@ -27,6 +27,9 @@ struct Projectile {
   target: @system.Entity
   speed: Double
   effect: ProjectileEffect
+
+  max_turn_rate: Double // 每秒最大转向角度（单位：弧度）
+  navigation_constant: Double // 比例导引常数 N
 }
 
 // --- 全局 Map ---
@@ -75,7 +78,8 @@ fn spawn_projectile(
   speed: Double,
   sprite: @sprite.Sprite, // 直接传递配置好的 Sprite
 ) -> Unit {
-  if @position.positions.get(source) is Some(source_pos) {
+  if @position.positions.get(source) is Some(source_pos) &&
+     @position.positions.get(target) is Some(target_pos){
     let projectile_entity = @system.Entity::new()
 
     // 1. 设置初始位置、Sprite 和抛射物组件
@@ -86,34 +90,83 @@ fn spawn_projectile(
       target: target,
       speed: speed,
       effect: effect,
+      max_turn_rate: 0.5, // 每秒最多转 π 弧度 (180度)
+      navigation_constant: 1.5, // 一个比较灵敏的制导系数
     })
-    
+    let initial_direction = (target_pos.0 - source_pos.0).normalize()
+    @velocity.velocities.set(projectile_entity, initial_direction.scalar_mul(speed))
     // 2. 注意：这里【不】设置速度(velocity)！
     // 速度的计算和更新由 projectile_system 每帧动态处理，以确保始终飞向目标。
   }
 }
+pub fn projectile_system(_backend: &@system.Backend) -> Unit {
+  let delta_seconds = 1.0 / 60.0
 
-/// 抛射物系统：处理所有子弹的飞行、寻的、命中检测和效果应用
-fn projectile_system(_backend: &@system.Backend) -> Unit {
-  projectiles.each(fn(proj_entity, proj_data) {
-    // 安全地获取抛射物和目标的位置
-    if @position.positions.get(proj_entity) is Some(proj_pos) {
-      if @position.positions.get(proj_data.target) is Some(target_pos) && proj_data.target.is_alive() {
-        let distance = proj_pos.0.distance_to(target_pos.0)
+  let current_projectiles_snapshot = projectiles.keys()
 
-        // 1. 命中检测
-        if distance < PROJECTILE_HIT_THRESHOLD {
-          // 命中！应用效果并清理子弹
-          apply_projectile_effect(proj_data, target_pos.0) // 传入命中位置用于AoE
-          entities_to_cleanup.val.push(proj_entity)
-          @velocity.velocities.remove(proj_entity) // 停止移动
+  for bullet in current_projectiles_snapshot {
+    if projectiles.get(bullet) is Some(proj_data) {
+      guard bullet.is_alive() else { continue }
+      
+      if @position.positions.get(bullet) is Some(bullet_pos) &&
+         @velocity.velocities.get(bullet) is Some(bullet_vel) {
 
-          ///////////////////临时测试爆炸效果///////////////////
+        // --- 1. 制导逻辑：动态寻找最近的目标进行追踪 ---
+        let mut closest_target_for_guidance = None
+        let mut min_guidance_distance = 99999.0
+        for unit in all_units.val {
+          if teams.get(unit) is Some(unit_team) && unit_team != proj_data.source_team {
+            if @position.positions.get(unit) is Some(unit_pos) {
+              let distance = bullet_pos.0.distance_to(unit_pos.0)
+              if distance < min_guidance_distance {
+                min_guidance_distance = distance
+                closest_target_for_guidance = Some(unit)
+              }
+            }
+          }
+        }
+
+        // 如果找到了制导目标，就更新飞行方向
+        if closest_target_for_guidance is Some(target) && @position.positions.get(target) is Some(target_pos) {
+          let line_of_sight = target_pos.0 - bullet_pos.0
+          let los_rate = signed_angle_between(bullet_vel.0, line_of_sight)
+          let desired_turn_speed = proj_data.navigation_constant * los_rate
+          let max_turn_this_frame = proj_data.max_turn_rate * delta_seconds
+          let actual_turn_angle = @kmath.clamp(desired_turn_speed, -max_turn_this_frame, max_turn_this_frame)
+          let new_velocity_direction = rotate_vec2d(bullet_vel.0, actual_turn_angle).normalize()
+          let final_velocity = new_velocity_direction.scalar_mul(proj_data.speed)
+          @velocity.velocities.set(bullet, final_velocity)
+        }
+        
+        // --- 2. 【核心改造】碰撞逻辑：检查是否撞到了“任何”一个敌人 ---
+        let mut hit_target = None
+        for unit in all_units.val {
+            if teams.get(unit) is Some(unit_team) && unit_team != proj_data.source_team {
+                if @position.positions.get(unit) is Some(unit_pos) {
+                    // 简单的碰撞检测：距离小于单位半径 (例如 32.0)
+                    if bullet_pos.0.distance_to(unit_pos.0) < 32.0 {
+                        hit_target = Some(unit)
+                        break // 只要撞到一个，就停止检查
+                    }
+                }
+            }
+        }
+
+        // --- 3. 命中处理 ---
+        if hit_target is Some(actual_hit_target) {
+          // 从系统中移除子弹
+          projectiles.remove(bullet)
+          entities_to_cleanup.val.push(bullet)
+
+          // 对【实际撞到的目标】应用效果
+          if @position.positions.get(actual_hit_target) is Some(hit_pos) {
+            apply_projectile_effect(proj_data, hit_pos.0)
+             ///////////////////临时测试爆炸效果///////////////////
           // 1. 创建一个新的、临时的实体用于播放特效
           let effect_entity = @system.Entity::new()
 
           // 2. 将特效实体的初始位置设置在被攻击的目标身上
-          @position.positions.set(effect_entity, target_pos.0.add(@math.Vec2D(185.0 / -2, 150.0/-2))) // 稍微往上偏移一点
+          @position.positions.set(effect_entity, bullet_pos.0.add(@math.Vec2D(185.0 / -2, 150.0/-2))) // 稍微往上偏移一点
 
           // 3. 在这个新实体上播放我们准备好的、不循环的爆炸动画
           @sprite.play_animation(
@@ -129,26 +182,12 @@ fn projectile_system(_backend: &@system.Backend) -> Unit {
           }
           one_shot_effects.add(effect_entity)
           ///////////////////临时测试爆炸效果///////////////////
-          
-          projectiles.remove(proj_entity) // 从系统中移除
-          
-        } else {
-          // 2. 持续寻的
-          let direction = (target_pos.0 - proj_pos.0).normalize()
-          let velocity = direction.scalar_mul(proj_data.speed)
-          @velocity.velocities.set(proj_entity, velocity)
+          }
         }
-
-      } else {
-        // 目标丢失或死亡，清理子弹
-        entities_to_cleanup.val.push(proj_entity)
-        projectiles.remove(proj_entity)
       }
     }
-  })
+  }
 }
-
-/// 效果应用函数：根据 ProjectileEffect 类型执行不同逻辑
 fn apply_projectile_effect(proj_data: Projectile, hit_pos: @math.Vec2D) -> Unit {
   match proj_data.effect {
     SingleTarget(damage) => {

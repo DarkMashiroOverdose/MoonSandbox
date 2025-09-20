@@ -8,7 +8,7 @@ let explosion_frames: Array[@sprite.AnimationFrame] = @sprite.frames_from_atlas(
   height=150.0,
 )
 
-// Create a non-looping explosion animation
+//测试动画系统
 let explosion_animation: @sprite.Animation = @sprite.Animation::new(explosion_frames, loop_=false, rate=0.5)
 fn cleanup_effects_system(_backend: &@system.Backend) -> Unit {
   for effect in one_shot_effects.to_array() {
@@ -18,6 +18,102 @@ fn cleanup_effects_system(_backend: &@system.Backend) -> Unit {
       entities_to_cleanup.val.push(effect)
       // 别忘了从特效列表中移除，避免重复检查
       one_shot_effects.remove(effect)
+    }
+  }
+}
+
+// (selection_system, move_order_system 等函数保持原样，无需修改)
+fn selection_system(_backend: &@system.Backend) -> Unit {
+  if @system.is_mouse_just_pressed(@system.MouseButton::Left) {
+    is_dragging.val = true
+    drag_start_pos.val = @system.mouse.pos
+  }
+
+  if @system.is_mouse_just_released(@system.MouseButton::Left) {
+    is_dragging.val = false
+    let drag_end_pos = @system.mouse.pos
+    let start_pos = drag_start_pos.val
+
+    let top_left_x = min_double(start_pos[X], drag_end_pos[X])
+    let top_left_y = min_double(start_pos[Y], drag_end_pos[Y])
+    let bottom_right_x = max_double(start_pos[X], drag_end_pos[X])
+    let bottom_right_y = max_double(start_pos[Y], drag_end_pos[Y])
+
+    game_state.selected_entities.clear()
+
+    for unit in all_units.val {
+      if @position.positions.get(unit) is Some(unit_pos) {
+        let unit_center_x = unit_pos.0[X] + 32.0
+        let unit_center_y = unit_pos.0[Y] + 32.0
+
+        if unit_center_x >= top_left_x && unit_center_x <= bottom_right_x &&
+           unit_center_y >= top_left_y && unit_center_y <= bottom_right_y {
+          game_state.selected_entities.push(unit)
+        }
+      }
+    }
+  }
+}
+fn move_order_system(_backend: &@system.Backend) -> Unit {
+  if @system.is_mouse_just_pressed(@system.MouseButton::Right) {
+    let mouse_pos = @system.mouse.pos
+    let mut clicked_on_enemy = None
+
+    for unit in all_units.val {
+      if @position.positions.get(unit) is Some(unit_pos) && teams.get(unit) is Some(unit_team) {
+        let unit_x = unit_pos.0[X]
+        let unit_y = unit_pos.0[Y]
+        if mouse_pos[X] >= unit_x && mouse_pos[X] <= unit_x + 64.0 &&
+           mouse_pos[Y] >= unit_y && mouse_pos[Y] <= unit_y + 64.0 {
+          
+          if unit_team == Team::Enemy {
+            clicked_on_enemy = Some(unit)
+            break
+          }
+        }
+      }
+    }
+
+    if clicked_on_enemy is Some(target_entity) {
+      // --- A. 是攻击指令 ---
+      for selected_unit in game_state.selected_entities {
+        if teams.get(selected_unit) is Some(Team::Player) {
+          attack_targets.set(selected_unit, target_entity)
+          destinations.remove(selected_unit)
+
+          // 【新增日志】: 在这里打印攻击指令信息
+          // 我们使用 \() 语法来在字符串中插入变量
+          println("[Log] Attack Order Issued: Attacker \{selected_unit} -> Target \{target_entity}") 
+        }
+      }
+    } else {
+      // --- B. 是移动指令 ---
+      for selected_unit in game_state.selected_entities {
+        attack_targets.remove(selected_unit)
+      }
+
+      // 【新增日志】: 打印移动指令信息
+      println("[Log] Move Order Issued. Clearing attack targets.")
+      
+      let selected_count = game_state.selected_entities.length()
+      if selected_count > 0 {
+        // ... 后面的队列移动代码保持不变 ...
+        let target_center = mouse_pos
+        let num_columns = 5
+        let formation_width = (min_int(selected_count, num_columns) - 1).to_double() * FORMATION_SPACING
+        let num_rows = (selected_count + num_columns - 1) / num_columns
+        let formation_height = (num_rows - 1).to_double() * FORMATION_SPACING
+
+        for i = 0; i < selected_count; i = i + 1 {
+          let entity = game_state.selected_entities[i]
+          let row = (i / num_columns).to_double()
+          let col = (i % num_columns).to_double()
+          let offset_x = col * FORMATION_SPACING - formation_width / 2.0
+          let offset_y = row * FORMATION_SPACING - formation_height / 2.0
+          let final_destination = target_center + @math.Vec2D(offset_x, offset_y)
+          destinations.set(entity, final_destination)
+        }
+      }
     }
   }
 }
