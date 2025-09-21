@@ -1,12 +1,22 @@
 let player_head: Ref[Option[@system.Entity]] = Ref::new(None)
 // 新增：玩家的加速度，数值越大，起步越快
-const PLAYER_ACCELERATION: Double = 0.5
+let player_facing_vector: Ref[@math.Vec2D] = Ref::new(@math.Vec2D(0.0, -1.0))
 
-// 新增：摩擦力系数，数值越接近1，惯性越大；越接近0，刹车越快
-const PLAYER_FRICTION: Double = 0.5
+const PLAYER_SPEED: Double = 3.0 // 这个保留，现在是坦克的固定前进速度
 
-const PLAYER_SPEED: Double = 3
+// 【新增】玩家的转向速度（单位：弧度/秒）
+const PLAYER_TURN_SPEED: Double = 4.0 
+
+
 let player_tail: Ref[Option[@system.Entity]] = Ref::new(None)
+
+struct PathHistory {
+  points: Array[@math.Vec2D]
+}
+let path_histories: Map[@system.Entity, PathHistory] = Map::new()
+
+// 为了防止内存无限增长，每个单位最多只保留最近的500个路径点
+const MAX_HISTORY_LENGTH: Int = 500
 
 // 新增：“车厢”组件
 struct TrainCar {
@@ -19,41 +29,32 @@ let train_cars: Map[@system.Entity, TrainCar] = Map::new()
 // 新增：“小火车”车厢之间的理想间距
 const TRAIN_SPACING: Double = 40.0
 pub fn player_control_system(_backend: &@system.Backend) -> Unit {
+  let delta_seconds = 1.0 / 60.0
   if player_head.val is Some(head_entity) {
-    
-    // 1. 获取单位当前的“速度向量(Vec2D)”
-    let current_velocity_vec2d = match @velocity.velocities.get(head_entity) {
-      // 【修正 #1】移除了分支末尾多余的逗号
-      Some(vel_component) => vel_component.0
-      None => @math.Vec2D(0.0, 0.0)
+
+    let mut turn_input = 0.0 // -1.0 代表向左转, 1.0 代表向右转
+
+    // 1. 读取转向输入
+    if @system.is_pressed(@system.KeyA) || @system.is_pressed(@system.ArrowLeft) {
+      turn_input = -1.0
+    }
+    if @system.is_pressed(@system.KeyD) || @system.is_pressed(@system.ArrowRight) {
+      turn_input = 1.0
     }
 
-    // 2. 获取玩家的输入方向
-    let direction = @system.key_vector(
-        @system.KeyW, 
-        @system.KeyS, 
-        @system.KeyA, 
-        @system.KeyD)
-
-    let mut new_velocity_vec2d = current_velocity_vec2d
-    
-    // 3. 【修正 #2】使用 distance_to(@math.Vec2D::zero()) 代替 magnitude()
-    if direction.distance_to(@math.Vec2D::zero()) > 0.0 {
-      // 如果有按键输入：施加加速度
-      let acceleration_vec = direction.normalize().scalar_mul(PLAYER_ACCELERATION)
-      new_velocity_vec2d = current_velocity_vec2d + acceleration_vec
-    } else {
-      // 如果没有按键输入：施加摩擦力
-      new_velocity_vec2d = current_velocity_vec2d.scalar_mul(PLAYER_FRICTION)
+    // 2. 如果有转向输入，就更新“朝向向量”
+    if turn_input != 0.0 {
+      let turn_angle = PLAYER_TURN_SPEED * turn_input * delta_seconds
+      // 调用我们之前写的 rotate_vec2d 辅助函数来旋转向量
+      player_facing_vector.val = rotate_vec2d(player_facing_vector.val, turn_angle)
     }
 
-    // 4. 【修正 #2】使用 distance_to(@math.Vec2D::zero()) 代替 magnitude()
-    if new_velocity_vec2d.distance_to(@math.Vec2D::zero()) > PLAYER_SPEED {
-      new_velocity_vec2d = new_velocity_vec2d.normalize().scalar_mul(PLAYER_SPEED)
-    }
+    // 3. 最终速度永远是“朝向”乘以“固定速度”
+    // 我们不再需要检查 W/S 键，实现了自动前进！
+    let final_velocity = player_facing_vector.val.normalize().scalar_mul(PLAYER_SPEED)
+    @velocity.velocities.set(head_entity, final_velocity)
 
-    // 5. 将最终计算出的 Vec2D 速度，应用回单位
-    @velocity.velocities.set(head_entity, new_velocity_vec2d)
+
   }
 }
 
@@ -87,23 +88,96 @@ pub fn player_train_management_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
-fn train_follow_system(_backend: &@system.Backend) -> Unit {
-  for car, train_data in train_cars {
-    // 【核心修正】从 prev 字段获取领头者
-    if train_data.prev is Some(leader) {
-      if car.is_alive() && leader.is_alive() {
-        if @position.positions.get(car) is Some(car_pos) && 
-           @position.positions.get(leader) is Some(leader_pos) {
-          
-          let distance = car_pos.0.distance_to(leader_pos.0)
-          if distance > TRAIN_SPACING {
-            destinations.set(car, leader_pos.0)
-          }
+
+
+
+// ---------------------------------
+//  路径记录系统
+// ---------------------------------
+// ---------------------------------
+//  轨迹录制系统 (为每个单位录制)
+// ---------------------------------
+fn path_history_system(_backend: &@system.Backend) -> Unit {
+  // 遍历所有拥有“历史记录”能力的单位
+  for unit in path_histories.keys() {
+    if path_histories.get(unit) is Some(history) {
+      if @position.positions.get(unit) is Some(pos) {
+        // 将当前位置添加到历史记录的末尾
+        history.points.push(pos.0)
+
+        // 如果历史记录太长，就移除最旧的那个点
+        if history.points.length() > MAX_HISTORY_LENGTH {
+          let _ = history.points.remove(0)
         }
+        // 将更新后的 history 写回
+        path_histories.set(unit, history)
       }
     }
   }
 }
+
+pub fn train_snake_follow_system(_backend: &@system.Backend) -> Unit {
+  // 从第一节车厢开始，遍历整个火车链条
+  let mut current_car_opt: Option[@system.Entity] = None
+  if player_head.val is Some(h) {
+    if train_cars.get(h) is Some(head_data) {
+      current_car_opt = head_data.next
+    }
+  }
+
+  // 追踪我们正在为第几节车厢计算位置 (第一节是1，第二节是2...)
+  let mut car_index = 1
+
+  while current_car_opt is Some(car_entity) {
+    if train_cars.get(car_entity) is Some(car_data) && car_data.prev is Some(leader) {
+      if path_histories.get(leader) is Some(leader_history) {
+        let path = leader_history.points
+        if path.length() < 1 { continue }
+
+        // 【核心】这节车厢的目标，是离火车头 (不是它的直接领袖) car_index * TRAIN_SPACING 的距离
+        let desired_distance_from_head = car_index.to_double() * TRAIN_SPACING
+        
+        // 沿着【火车头】的轨迹，向回搜索那个精确的点
+        let head_path_opt = if player_head.val is Some(h) { path_histories.get(h) } else { None }
+        if head_path_opt is Some(head_history) {
+            let head_path = head_history.points
+            if head_path.length() > 1 {
+                let mut target_pos = head_path[head_path.length() - 1]
+                let mut distance_travelled_backwards = 0.0
+
+                for i = head_path.length() - 2; i >= 0; i = i - 1 {
+                    let p_new = head_path[i + 1]
+                    let p_old = head_path[i]
+                    let segment_length = p_new.distance_to(p_old)
+
+                    if (distance_travelled_backwards + segment_length) >= desired_distance_from_head {
+                        let distance_needed_on_this_segment = desired_distance_from_head - distance_travelled_backwards
+                        
+                        // 【核心修正】使用我们自己的 vec2d_lerp 函数
+                        let ratio = if segment_length == 0.0 { 0.0 } else { distance_needed_on_this_segment / segment_length }
+                        target_pos = vec2d_lerp(p_new, p_old, ratio)
+                        break
+                    }
+                    distance_travelled_backwards += segment_length
+                }
+                
+                // 【核心】直接将车厢的位置“瞬移”到计算出的目标点
+                @position.positions.set(car_entity, target_pos)
+            }
+        }
+      }
+    }
+    
+    // 移动到链表的下一个节点
+    car_index += 1
+    if train_cars.get(car_entity) is Some(car_data) {
+      current_car_opt = car_data.next
+    } else {
+      current_car_opt = None
+    }
+  }
+}
+
 // ---------------------------------
 //  辅助函数：处理小火车断链重连
 // ---------------------------------

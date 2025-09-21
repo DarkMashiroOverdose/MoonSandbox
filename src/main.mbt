@@ -14,15 +14,10 @@ let drag_start_pos: Ref[@math.Vec2D] = Ref::new(@math.Vec2D(0.0, 0.0)) // 记录
 
 let drag_box_entity: @system.Entity = @system.Entity::new() // 新增：拖动框实体
 
-let avoidance_behaviors: Map[@system.Entity, AvoidanceBehavior] = Map::new()
 const FORMATION_SPACING: Double = 50.0 // 单位在队列中的间距
 let entities_to_cleanup: Ref[Array[@system.Entity]] = Ref::new([])
-const ENEMY_PUSH_FACTOR: Double = 3.0 // 敌我单位间的推力系数
 
-struct AvoidanceBehavior {
-  unit_radius: Double
-  avoidance_radius: Double
-}
+
 
 enum Team {
   Player
@@ -41,27 +36,29 @@ fn main {
     .with_fps(60)
     .add_system(init_game, schedule=@system.Schedule::Startup)
     .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
-    .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
-    .add_system(selection_system, schedule=@system.Schedule::Update)
     .add_system(@sprite.render_world_system, schedule=@system.Schedule::Render(0)) // 先画世界
     .add_system(@sprite.render_ui_system, schedule=@system.Schedule::Render(1))    // 再画UI
     //.add_system(move_order_system, schedule=@system.Schedule::Update)
     .add_system(player_train_management_system, schedule=@system.Schedule::Update)
     //.add_system(train_follow_system, schedule=@system.Schedule::Update)
-    .add_system(player_control_system, schedule=@system.Schedule::Update)
-    .add_system(aggro_system, schedule=@system.Schedule::Update)
-    .add_system(combat_system, schedule=@system.Schedule::Update)
-    .add_system(npc_intent_system, schedule=@system.Schedule::Update)
-    .add_system(avoidance_system, schedule=@system.Schedule::Update)
-    .add_system(velocity_resolver_system, schedule=@system.Schedule::Update)
-    .add_system(projectile_system, schedule=@system.Schedule::Update) 
-    .add_system(debuff_system, schedule=@system.Schedule::Update)     
+    .add_system(player_control_system, schedule=@system.Schedule::Update)   // 1. 玩家输入，决定火车头速度
+    .add_system(enemy_movement_system, schedule=@system.Schedule::Update)  // 2. AI输入，决定敌人速度
+    .add_system(aggro_system, schedule=@system.Schedule::Update)            // 3. AI索敌
+    .add_system(combat_system, schedule=@system.Schedule::Update)           // 4. 战斗结算
+    .add_system(projectile_system, schedule=@system.Schedule::Update)       // 5. 抛射物飞行
+    
+    // --- 执行与反馈层 ---
+    .add_system(apply_velocity_system, schedule=@system.Schedule::Update) // 6. 应用所有速度，更新所有单位的【新位置】
+    .add_system(path_history_system, schedule=@system.Schedule::Update)     // 7. 录制所有玩家单位的【新位置】
+    .add_system(train_snake_follow_system, schedule=@system.Schedule::Update) // 8. 【核心】根据新轨迹，直接设置车厢的【最终位置】
+    
+    // --- UI 与清理层 ---
+    .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
+    .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
+    .add_system(cleanup_system, schedule=@system.Schedule::Update)
     .add_system(cleanup_effects_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_key_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_mouse_system, schedule=@system.Schedule::Update)
-    
-    .add_system(cleanup_system, schedule=@system.Schedule::Update)
-    .add_system(apply_velocity_system, schedule=@system.Schedule::Update)
     .run()
 }
 
@@ -69,9 +66,7 @@ fn main {
 //  初始化 (Initialization)
 // ---------------------------------
 fn init_game(backend: &@system.Backend) -> Unit {
-  backend.preload_img("assets/gray_map.png")
   add_map()
-  
   add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
@@ -81,13 +76,16 @@ fn init_game(backend: &@system.Backend) -> Unit {
   // 创建敌方单位，放在地图另一侧
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
   add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
   add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
   
 }
+
+
+
+
 
 fn add_map() -> Unit {
   let map_entity = @system.Entity::new()
@@ -97,6 +95,8 @@ fn add_map() -> Unit {
   let map_sprite = @sprite.Sprite::from_picture(map_picture, 0)
   @sprite.sprites.set(map_entity, map_sprite)
 }
+
+
 
 // ---------------------------------
 //  系统 (Systems)
@@ -121,8 +121,6 @@ fn apply_velocity_system(_backend: &@system.Backend) -> Unit {
   }
 }
 
-
-const AVOIDANCE_STRENGTH: Double = 4
 
 
 // ---------------------------------
@@ -171,7 +169,6 @@ fn cleanup_system(_backend: &@system.Backend) -> Unit {
       teams.remove(dead_unit)
       destinations.remove(dead_unit)
       attack_targets.remove(dead_unit)
-      avoidance_behaviors.remove(dead_unit)
       unit_to_selection_box.remove(dead_unit)
       @position.positions.remove(dead_unit)
       @velocity.velocities.remove(dead_unit)
