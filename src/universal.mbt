@@ -33,3 +33,13 @@ fn clamp_double(val: Double, min: Double, max: Double) -> Double {
   // 新数学库直接提供了 clamp 函数！
   return @kmath.clamp(val, min, max)
 }
+
+
+/// 在两个二维向量之间进行线性插值
+/// @param p1 起点向量
+/// @param p2 终点向量
+/// @param ratio 插值比例 (0.0 到 1.0)
+/// @return @math.Vec2D 插值后的新向量
+fn vec2d_lerp(p1: @math.Vec2D, p2: @math.Vec2D, ratio: Double) -> @math.Vec2D {
+  return p1 + (p2 - p1).scalar_mul(ratio)
+}
