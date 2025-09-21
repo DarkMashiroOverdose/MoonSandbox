@@ -70,7 +70,7 @@ fn init_game(backend: &@system.Backend) -> Unit {
   add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
-  add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_triangle(@math.Vec2D(350.0, 500.0), Team::Player)
 
   
   // 创建敌方单位，放在地图另一侧
