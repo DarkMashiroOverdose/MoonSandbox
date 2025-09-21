@@ -61,7 +61,7 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
   let new_block = @system.Entity::new()
   @position.positions.set(new_block, pos)
   movement_stats.set(new_block, { speed: 3.0 })
-  let block_shape = @sprite.ColoredShape::new(@sprite.Shape::rect(25,25), @sprite.DrawStyle::fill("yellow"))
+  let block_shape = @sprite.ColoredShape::new(@sprite.Shape::rect(25,25,0), @sprite.DrawStyle::fill("yellow"))
   let block_sprite = @sprite.Sprite::from_shape(block_shape, 100, offset=@math.Vec2D(25 / -2.0, 25 / -2.0), layer=@sprite.RenderLayer::game_world())
   @sprite.sprites.set(new_block, block_sprite)
 
@@ -73,6 +73,13 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
   combat_stats.set(new_block, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 2.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
   teams.set(new_block, team)
 
+  dynamic_transforms.set(new_block, {
+      rotation_speed: 2.0,
+      scale_speed: 3.0,
+      scale_amplitude: 0.25,
+      _current_angle: 0.0,
+      _time_elapsed: 0.0,
+  })
   _connect_player_unit_to_train(new_block, team)
 }
 
@@ -92,7 +99,13 @@ fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
   healths.set(new_ellipse, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
   combat_stats.set(new_ellipse, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
   teams.set(new_ellipse, team)
-
+  dynamic_transforms.set(new_ellipse, {
+      rotation_speed: 2.0,
+      scale_speed: 3.0,
+      scale_amplitude: 0.25,
+      _current_angle: 0.0,
+      _time_elapsed: 0.0,
+  })
   _connect_player_unit_to_train(new_ellipse, team)
 }
 
@@ -115,6 +128,45 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
 
   _connect_player_unit_to_train(new_triangle, team)
 }
+fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
+  let unit_dimensions = @math.Vec2D(40.0, 40.0) 
+  let new_triangle = @system.Entity::new()
+  @position.positions.set(new_triangle, pos)
+  movement_stats.set(new_triangle, { speed: 3.0 })
+
+  let triangle_shape_geom = @sprite.Shape::triangle(40.0, 0.0)
+
+  let triangle_colored_shape = @sprite.ColoredShape::new(
+    triangle_shape_geom, 
+    @sprite.DrawStyle::fill("#86ff05ff")
+  )
+
+  let triangle_sprite = @sprite.Sprite::from_shape(
+    triangle_colored_shape, 
+    100, 
+    offset = @math.Vec2D(-20.0, -20.0),
+    layer=@sprite.RenderLayer::game_world()
+  )
+  @sprite.sprites.set(new_triangle, triangle_sprite)
+
+  let selection_box = attach_selection_box(new_triangle, pos, unit_dimensions, team)
+  unit_to_selection_box.set(new_triangle, selection_box)
+  let (bar_bg, bar_fg) = attach_health_bar()
+  
+  healths.set(new_triangle, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
+  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  teams.set(new_triangle, team)
+  
+  dynamic_transforms.set(new_triangle, {
+    rotation_speed: 2.0,
+    scale_speed: 3.0,
+    scale_amplitude: 0.25,
+    _current_angle: 0.0,
+    _time_elapsed: 0.0,
+  })
+  _connect_player_unit_to_train(new_triangle, team)
+}
+
 fn add_new_tank(pos: @math.Vec2D, team: Team) -> Unit {
   let unit_dimensions = @math.Vec2D(64.0, 64.0)
   let new_tank = @system.Entity::new()

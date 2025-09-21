@@ -117,3 +117,67 @@ fn move_order_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
+
+
+pub struct DynamicTransform {
+  rotation_speed: Double // 每秒旋转的弧度
+  scale_speed: Double    // 缩放脉冲的速度
+  scale_amplitude: Double // 缩放脉冲的幅度 (e.g., 0.2 表示在 80% 到 120% 之间缩放)
+
+  // 内部状态，用于动画计算
+  _current_angle: Double
+  _time_elapsed: Double
+}
+
+// 存储所有拥有此行为的实体
+pub let dynamic_transforms: Map[@system.Entity, DynamicTransform] = Map::new()
+
+// ---------------------------------
+//  动态变换系统
+// ---------------------------------
+// ---------------------------------
+//  动态变换系统 (最终修正版)
+// ---------------------------------
+// ---------------------------------
+//  动态变换系统 (最终正确版)
+// ---------------------------------
+pub fn dynamic_transform_system(_backend: &@system.Backend) -> Unit {
+  let delta_seconds = 1.0 / 60.0
+
+  for entity in dynamic_transforms.keys() {
+    if dynamic_transforms.get(entity) is Some(transform_data) {
+      if entity.is_alive() {
+        // 1. 更新内部动画状态
+        let new_angle = transform_data._current_angle + transform_data.rotation_speed * delta_seconds
+        let new_time = transform_data._time_elapsed + delta_seconds
+        
+        let updated_transform_data = {
+            ..transform_data,
+            _current_angle: new_angle,
+            _time_elapsed: new_time,
+        }
+
+        // 2. 计算当前的缩放值
+        let scale_pulse = @kmath.sin(new_time * transform_data.scale_speed)
+        let current_scale = 1.0 + scale_pulse * transform_data.scale_amplitude
+        
+        // 3. 【核心修正】直接获取【可变的】Sprite 组件并修改它！
+        if @sprite.sprites.get(entity) is Some(sprite) {
+          
+          // a. 创建独立的缩放和旋转变换
+          let scale_transform = @math.Transform::from_scale(current_scale, current_scale)
+          let rotation_transform = @math.Transform::from_rotation_rad(new_angle)
+          
+          // b. 将它们相乘得到最终的变换矩阵
+          let final_transform = rotation_transform * scale_transform
+          println("[Log A] DynamicTransform: Entity \{entity}, New Angle: \{new_angle}, Transform A: \{final_transform.a}")
+          // c. 【核心】直接修改 Sprite 的 transform 字段！
+          sprite.transform = final_transform
+        }
+        
+        // 4. 将更新后的内部状态写回
+        dynamic_transforms.set(entity, updated_transform_data)
+      }
+    }
+  }
+}

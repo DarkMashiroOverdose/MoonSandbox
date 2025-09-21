@@ -23,7 +23,7 @@ fn attach_selection_box(
     }
   }
   let selection_box_graphic = @sprite.ColoredShape::new(
-    @sprite.Shape::rect(box_size[X], box_size[Y]),
+    @sprite.Shape::rect(box_size[X], box_size[Y],0),
     style,
   )
   

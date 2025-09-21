@@ -46,6 +46,7 @@ fn main {
     .add_system(aggro_system, schedule=@system.Schedule::Update)            // 3. AI索敌
     .add_system(combat_system, schedule=@system.Schedule::Update)           // 4. 战斗结算
     .add_system(projectile_system, schedule=@system.Schedule::Update)       // 5. 抛射物飞行
+    .add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
     
     // --- 执行与反馈层 ---
     .add_system(apply_velocity_system, schedule=@system.Schedule::Update) // 6. 应用所有速度，更新所有单位的【新位置】
@@ -80,7 +81,7 @@ fn init_game(backend: &@system.Backend) -> Unit {
   add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
-  
+  add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)
 }
 
 
