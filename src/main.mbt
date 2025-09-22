@@ -75,17 +75,17 @@ fn main {
 fn init_game(backend: &@system.Backend) -> Unit {
   add_map()
   setup_vfx_library()
-  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
-  //add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
-  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_triangle(@math.Vec2D(350.0, 500.0), Team::Player)
 
   
   // 创建敌方单位，放在地图另一侧
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  //add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
+  add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
   add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  //add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
   add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)
