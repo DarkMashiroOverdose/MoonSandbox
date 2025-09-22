@@ -49,6 +49,8 @@ fn main {
     .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
     //.add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
     .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
+    .add_system(vfx_spawner_system, schedule=@system.Schedule::Update)
+    .add_system(vfx_update_system, schedule=@system.Schedule::Update)
     
     
     // --- 执行与反馈层 ---
@@ -62,7 +64,6 @@ fn main {
     .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
     .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
     .add_system(cleanup_system, schedule=@system.Schedule::Update)
-    .add_system(cleanup_effects_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_key_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_mouse_system, schedule=@system.Schedule::Update)
     .run()
@@ -73,16 +74,17 @@ fn main {
 // ---------------------------------
 fn init_game(backend: &@system.Backend) -> Unit {
   add_map()
-  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
-  add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
-  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  setup_vfx_library()
+  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  //add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
+  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_triangle(@math.Vec2D(350.0, 500.0), Team::Player)
 
   
   // 创建敌方单位，放在地图另一侧
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  //add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)

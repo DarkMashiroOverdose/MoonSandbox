@@ -31,6 +31,8 @@ struct Projectile {
 
   max_turn_rate: Double // 每秒最大转向角度（单位：弧度）
   navigation_constant: Double // 比例导引常数 N
+  on_hit_vfx: VFX_Type    // 【新增】视觉效果
+  area_effect_vfx: Option[VFX_Type]    // 【新增】视觉效果
 }
 
 // --- 全局 Map ---
@@ -77,7 +79,9 @@ fn execute_bullet_attack(attacker: @system.Entity, target: @system.Entity, stats
       attacker_team,
       effect,
       5.0, // 子弹飞行速度, 未来也可以放入 CombatStats
-      bullet_sprite
+      bullet_sprite,
+      stats.on_hit_vfx, // 【新增】从 stats 中读取特效指令并传递
+      stats.area_effect_vfx,
     )
   }
 }
@@ -89,6 +93,8 @@ fn spawn_projectile(
   effect: ProjectileEffect,
   speed: Double,
   sprite: @sprite.Sprite, // 直接传递配置好的 Sprite
+  on_hit_vfx: VFX_Type,    // 【新增】视觉效果
+  area_effect_vfx: Option[VFX_Type]
 ) -> Unit {
   if @position.positions.get(source) is Some(source_pos) &&
      @position.positions.get(target) is Some(target_pos){
@@ -104,6 +110,8 @@ fn spawn_projectile(
       effect: effect,
       max_turn_rate: 0.5, // 每秒最多转 π 弧度 (180度)
       navigation_constant: 1.5, // 一个比较灵敏的制导系数
+      on_hit_vfx: on_hit_vfx, // 【新增】将指令存入子弹组件
+      area_effect_vfx: area_effect_vfx
     })
     let initial_direction = (target_pos.0 - source_pos.0).normalize()
     @velocity.velocities.set(projectile_entity, initial_direction.scalar_mul(speed))
@@ -173,27 +181,7 @@ pub fn projectile_system(_backend: &@system.Backend) -> Unit {
           // 对【实际撞到的目标】应用效果
           if @position.positions.get(actual_hit_target) is Some(hit_pos) {
             apply_projectile_effect(proj_data, hit_pos.0)
-             ///////////////////临时测试爆炸效果///////////////////
-          // 1. 创建一个新的、临时的实体用于播放特效
-          let effect_entity = @system.Entity::new()
-
-          // 2. 将特效实体的初始位置设置在被攻击的目标身上
-          @position.positions.set(effect_entity, bullet_pos.0.add(@math.Vec2D(185.0 / -2, 150.0/-2))) // 稍微往上偏移一点
-
-          // 3. 在这个新实体上播放我们准备好的、不循环的爆炸动画
-          @sprite.play_animation(
-            effect_entity,
-            explosion_animation,
-            layer=@sprite.RenderLayer::game_world(),
-          )
-
-          // 2. 手动获取并更新 Sprite 的 zindex
-          if @sprite.sprites.get(effect_entity) is Some(sprite) {
-            let updated_sprite = { ..sprite, zindex: 500 }
-            @sprite.sprites.set(effect_entity, updated_sprite)
-          }
-          one_shot_effects.add(effect_entity)
-          ///////////////////临时测试爆炸效果///////////////////
+            
           }
         }
       }
@@ -201,6 +189,12 @@ pub fn projectile_system(_backend: &@system.Backend) -> Unit {
   }
 }
 fn apply_projectile_effect(proj_data: Projectile, hit_pos: @math.Vec2D) -> Unit {
+  println("[Log - VFX Request] An on-hit VFX of type '\{proj_data.on_hit_vfx}' was requested.")
+  vfx_requests.val.push({
+    vfx_type: proj_data.on_hit_vfx,
+    position: hit_pos,
+    rotation: 0.0,
+  })
   match proj_data.effect {
     SingleTarget(damage) => {
       // 委托给“单体伤害”函数
@@ -215,7 +209,7 @@ fn apply_projectile_effect(proj_data: Projectile, hit_pos: @math.Vec2D) -> Unit 
       effect_apply_debuff(proj_data.target, effect, duration)
     }
     CreateHazardousArea(radius, dps, duration) => {
-      spawn_hazardous_area(hit_pos, radius, dps, duration, proj_data.source_team)
+      spawn_hazardous_area(hit_pos, radius, dps, duration, proj_data.source_team, proj_data.area_effect_vfx)
     }
   }
 }
@@ -264,17 +258,18 @@ pub struct HazardousArea {
 
 pub let hazardous_areas: Map[@system.Entity, HazardousArea] = Map::new()
 
-fn spawn_hazardous_area(pos: @math.Vec2D, radius: Double, dps: Double, duration: Double, team: Team) -> Unit {
-  println("[Log] Spawning hazardous area at (\{pos[X]}, \{pos[Y]})")
+fn spawn_hazardous_area(pos: @math.Vec2D, radius: Double, dps: Double, duration: Double, team: Team, vfx_type_opt: Option[VFX_Type]) -> Unit {
+  println("[Log Spawning] Spawning hazardous area at (\{pos[X]}, \{pos[Y]})")
   let area_entity = @system.Entity::new()
-
-  // 1. 设置位置和外观
   @position.positions.set(area_entity, pos)
-  let shape = @sprite.ColoredShape::new(@sprite.Shape::circle(radius), @sprite.DrawStyle::fill("rgba(140, 255, 140, 0.5)")) // 半透明的绿色
-  let sprite = @sprite.Sprite::from_shape(shape, 50, layer=@sprite.RenderLayer::game_world()) // z-index较低，在单位下方
-  @sprite.sprites.set(area_entity, sprite)
 
-  // 2. 附加核心的逻辑组件
+  if vfx_type_opt is Some(vfx_type) {
+    vfx_requests.val.push({
+      vfx_type: vfx_type,
+      position: pos,
+      rotation: 0.0,
+    })
+  }
   hazardous_areas.set(area_entity, {
     source_team: team,
     damage_per_second: dps,
@@ -284,38 +279,37 @@ fn spawn_hazardous_area(pos: @math.Vec2D, radius: Double, dps: Double, duration:
   })
 }
 
-fn hazardous_area_system(_backend: &@system.Backend) -> Unit {
+pub fn hazardous_area_system(_backend: &@system.Backend) -> Unit {
   let delta_seconds = 1.0 / 60.0
-
-  for area_entity, area_data in hazardous_areas {
-    // 1. 更新持续时间
-    area_data.remaining_duration -= delta_seconds
-
-    if area_data.remaining_duration <= 0.0 {
-      // 区域已过期，提交给清理系统
-      entities_to_cleanup.val.push(area_entity)
-      hazardous_areas.remove(area_entity)
-      continue
-    }
-
-    // 2. 更新伤害“心跳”计时器
-    area_data.tick_timer -= delta_seconds
-    if area_data.tick_timer <= 0.0 {
-      // a. 重置计时器
-      area_data.tick_timer = 1.0 // 每秒造成一次伤害
-
-      // b. 对范围内的所有敌人造成伤害
-      if @position.positions.get(area_entity) is Some(area_pos) {
-        effect_apply_aoe_damage(
-          area_pos.0, 
-          area_data.radius, 
-          area_data.damage_per_second, // 伤害值就是dps
-          area_data.source_team,
-        )
+  
+  for area_entity in hazardous_areas.keys() {
+    if hazardous_areas.get(area_entity) is Some(area_data) {
+      
+      let updated_data = area_data
+      
+      updated_data.remaining_duration -= delta_seconds
+      
+      if updated_data.remaining_duration <= 0.0 {
+        entities_to_cleanup.val.push(area_entity)
+        hazardous_areas.remove(area_entity)
+        // 使用 continue 跳过本次循环的后续逻辑
+        continue
       }
-    }
 
-    // 3. 将更新后的数据写回
-    hazardous_areas.set(area_entity, area_data)
+      updated_data.tick_timer -= delta_seconds
+      if updated_data.tick_timer <= 0.0 {
+        updated_data.tick_timer = 1.0 
+        if @position.positions.get(area_entity) is Some(area_pos) {
+          effect_apply_aoe_damage(
+            area_pos.0, 
+            updated_data.radius, 
+            updated_data.damage_per_second,
+            updated_data.source_team,
+          )
+        }
+      }
+      
+      hazardous_areas.set(area_entity, updated_data)
+    }
   }
 }

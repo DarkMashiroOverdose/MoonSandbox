@@ -17,6 +17,8 @@ pub struct CombatStats {
   attack_type: AttackType
   aoe_radius: Double
   effect_duration: Double
+  on_hit_vfx: VFX_Type 
+  area_effect_vfx: Option[VFX_Type] 
 }
 
 pub enum AttackType {
@@ -191,11 +193,15 @@ fn effect_apply_aoe_damage(
   source_team: Team
 ) -> Unit {
   // 遍历所有单位，检查是否在范围内且为敌方
+  println("[Log B - AoE Damage] Function called. Source team: \{source_team}")
   for unit in all_units.val {
     // 检查单位是否为敌方
     if teams.get(unit) is Some(unit_team) && unit_team != source_team {
+      let is_hostile = unit_team != source_team
+      println("[Log C - Target Check] Checking unit \{unit} (Team: \{unit_team}). Is hostile? \{is_hostile}")
       if @position.positions.get(unit) is Some(unit_pos) {
         // 检查是否在伤害半径内
+        
         if unit_pos.0.distance_to(origin_pos) <= radius {
           apply_damage(unit, damage)
         }
