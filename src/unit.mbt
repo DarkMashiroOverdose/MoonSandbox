@@ -52,17 +52,20 @@ fn add_new_ball(pos: @math.Vec2D, team: Team) -> Unit {
   combat_stats.set(new_ball, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 1.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
   teams.set(new_ball, team)
 
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
   // 【核心】调用助手函数，完成后续所有设置
   _connect_player_unit_to_train(new_ball, team)
 }
 
 fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
-  let unit_dimensions = @math.Vec2D(25.0, 25.0)
+  let unit_dimensions = @math.Vec2D(40.0, 40.0)
   let new_block = @system.Entity::new()
   @position.positions.set(new_block, pos)
   movement_stats.set(new_block, { speed: 3.0 })
-  let block_shape = @sprite.ColoredShape::new(@sprite.Shape::rect(25,25,0), @sprite.DrawStyle::fill("yellow"))
-  let block_sprite = @sprite.Sprite::from_shape(block_shape, 100, offset=@math.Vec2D(25 / -2.0, 25 / -2.0), layer=@sprite.RenderLayer::game_world())
+  let block_shape = @sprite.ColoredShape::new(@sprite.Shape::rect(40,40,0), @sprite.DrawStyle::fill("yellow"))
+  let block_sprite = @sprite.Sprite::from_shape(block_shape, 100, offset=@math.Vec2D(40 / -2.0, 40 / -2.0), layer=@sprite.RenderLayer::game_world())
   @sprite.sprites.set(new_block, block_sprite)
 
   let selection_box = attach_selection_box(new_block, pos, unit_dimensions, team)
@@ -80,6 +83,9 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
       _current_angle: 0.0,
       _time_elapsed: 0.0,
   })
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
   _connect_player_unit_to_train(new_block, team)
 }
 
@@ -106,6 +112,9 @@ fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
       _current_angle: 0.0,
       _time_elapsed: 0.0,
   })
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
   _connect_player_unit_to_train(new_ellipse, team)
 }
 
@@ -126,13 +135,16 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
   teams.set(new_triangle, team)
 
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
   _connect_player_unit_to_train(new_triangle, team)
 }
 fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   let unit_dimensions = @math.Vec2D(40.0, 40.0) 
   let new_triangle = @system.Entity::new()
   @position.positions.set(new_triangle, pos)
-  movement_stats.set(new_triangle, { speed: 3.0 })
+  movement_stats.set(new_triangle, { speed: 0.0 })
 
   let triangle_shape_geom = @sprite.Shape::triangle(40.0, 0.0)
 
@@ -154,7 +166,7 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_triangle, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 0.0, attack_cooldown: 100.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
   teams.set(new_triangle, team)
   
   dynamic_transforms.set(new_triangle, {
@@ -164,6 +176,9 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
     _current_angle: 0.0,
     _time_elapsed: 0.0,
   })
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
   _connect_player_unit_to_train(new_triangle, team)
 }
 

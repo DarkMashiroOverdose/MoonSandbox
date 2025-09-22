@@ -153,5 +153,50 @@ fn update_health_bars_system(_backend: &@system.Backend) -> Unit {
   }
 }
 
+// ---------------------------------
+//  附加朝向指示器 (新函数)
+// ---------------------------------
 
 
+
+let unit_to_orientation_indicator: Map[@system.Entity, @system.Entity] = Map::new()
+fn attach_orientation_indicator(
+  parent_unit: @system.Entity, 
+  parent_pos: @math.Vec2D,
+  parent_dims: @math.Vec2D,
+) -> @system.Entity {
+  let indicator_entity = @system.Entity::new()
+
+  @position.positions.set(indicator_entity, parent_pos)
+
+  let indicator_width = 4.0
+  let indicator_height = parent_dims[Y]// 长度是单位高度的一半
+
+  let indicator_graphic = @sprite.ColoredShape::new(
+    @sprite.Shape::rect(indicator_width, indicator_height, 90.0),
+    @sprite.DrawStyle::fill("cyan"),
+  )
+
+  let indicator_sprite = @sprite.Sprite::from_shape(
+    indicator_graphic, 
+    150, 
+    offset=@math.Vec2D(indicator_width / -2.0, -indicator_height), 
+    layer=@sprite.RenderLayer::ui(),
+  )
+  @sprite.sprites.set(indicator_entity, indicator_sprite)
+
+  return indicator_entity
+}
+fn update_orientation_indicators_system(_backend: &@system.Backend) -> Unit {
+  // 遍历所有拥有指示器的单位
+  unit_to_orientation_indicator.each(fn(unit, indicator_entity) {
+    // 1. 安全地获取单位和指示器都需要的所有组件
+    if @position.positions.get(unit) is Some(unit_pos) &&
+       @sprite.sprites.get(unit) is Some(unit_sprite) &&
+       @sprite.sprites.get(indicator_entity) is Some(indicator_sprite) {
+
+      @position.positions.set(indicator_entity, unit_pos.0)
+      indicator_sprite.transform = unit_sprite.transform
+    }
+  })
+}

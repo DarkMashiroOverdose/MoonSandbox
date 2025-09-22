@@ -181,3 +181,50 @@ pub fn dynamic_transform_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
+/// 更新一个单位的 Sprite，使其朝向指定的方向向量
+pub fn unit_orientation_system(_backend: &@system.Backend) -> Unit {
+  for unit in all_units.val {
+    if unit.is_alive() {
+      let mut new_direction: Option[@math.Vec2D] = None
+
+      if attack_targets.get(unit) is Some(target) {
+        if @position.positions.get(unit) is Some(unit_pos) &&
+           @position.positions.get(target) is Some(target_pos) {
+          
+          let direction_vec = target_pos.0 - unit_pos.0
+          if direction_vec.distance_to(@math.Vec2D::zero()) > 1.0 {
+            new_direction = Some(direction_vec.normalize())
+          }
+        }
+      } else if player_head.val != Some(unit) { // 火车头由 player_control_system 控制朝向
+        if @velocity.velocities.get(unit) is Some(vel) {
+          if vel.0.distance_to(@math.Vec2D::zero()) > 0.1 {
+            new_direction = Some(vel.0.normalize())
+          }
+        }
+      }
+
+      if new_direction is Some(dir) {
+        update_unit_orientation(unit, dir)
+      }
+    }
+  }
+}
+
+// ---------------------------------
+//  渲染辅助函数 (最终修正版)
+// ---------------------------------
+/// 更新一个单位的 Sprite，使其朝向指定的方向向量
+pub fn update_unit_orientation(entity: @system.Entity, direction: @math.Vec2D) -> Unit {
+  if @sprite.sprites.get(entity) is Some(sprite) {
+    // 1. 从朝向向量计算出【目标旋转角度】
+    let target_angle = @kmath.atan2(direction[Y], direction[X])
+    
+    let base_rotation = sprite.transform.get_rotation_rad()
+
+    let angle_to_apply = target_angle - base_rotation
+
+    sprite.transform = sprite.transform * @math.Transform::from_rotation_rad(angle_to_apply)
+    
+  }
+}

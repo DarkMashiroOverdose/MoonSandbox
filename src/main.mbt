@@ -46,7 +46,9 @@ fn main {
     .add_system(aggro_system, schedule=@system.Schedule::Update)            // 3. AI索敌
     .add_system(combat_system, schedule=@system.Schedule::Update)           // 4. 战斗结算
     .add_system(projectile_system, schedule=@system.Schedule::Update)       // 5. 抛射物飞行
-    .add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
+    .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
+    //.add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
+    
     
     // --- 执行与反馈层 ---
     .add_system(apply_velocity_system, schedule=@system.Schedule::Update) // 6. 应用所有速度，更新所有单位的【新位置】
@@ -54,6 +56,8 @@ fn main {
     .add_system(train_snake_follow_system, schedule=@system.Schedule::Update) // 8. 【核心】根据新轨迹，直接设置车厢的【最终位置】
     
     // --- UI 与清理层 ---
+    
+    //.add_system(update_orientation_indicators_system, schedule=@system.Schedule::Update)
     .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
     .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
     .add_system(cleanup_system, schedule=@system.Schedule::Update)
@@ -76,9 +80,9 @@ fn init_game(backend: &@system.Backend) -> Unit {
   
   // 创建敌方单位，放在地图另一侧
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  //add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
+  //add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  //add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
   add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)

@@ -8,7 +8,7 @@ fn min_double(a: Double, b: Double) -> Double {
 fn max_double(a: Double, b: Double) -> Double {
   if a > b { a } else { b }
 }
-
+const PI = 3.14159
 // 计算两个向量之间的带符号夹角 (弧度)
 fn signed_angle_between(v1: @math.Vec2D, v2: @math.Vec2D) -> Double {
 
