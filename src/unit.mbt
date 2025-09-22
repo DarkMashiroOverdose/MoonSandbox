@@ -49,7 +49,7 @@ fn add_new_ball(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_ball, { current: 100.0, max: 100.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_ball, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 1.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_ball, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 1.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 ,effect_duration: 0.0})
   teams.set(new_ball, team)
 
   // [Debug]附加朝向指示器
@@ -73,7 +73,7 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_block, { current: 100.0, max: 100.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_block, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 2.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_block, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 2.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 ,effect_duration: 0.0})
   teams.set(new_block, team)
 
   dynamic_transforms.set(new_block, {
@@ -103,7 +103,7 @@ fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_ellipse, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_ellipse, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_ellipse, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 ,effect_duration: 0.0})
   teams.set(new_ellipse, team)
   dynamic_transforms.set(new_ellipse, {
       rotation_speed: 2.0,
@@ -132,7 +132,7 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_triangle, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 3.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 100.0 ,effect_duration: 10.0})
   teams.set(new_triangle, team)
 
   // [Debug]附加朝向指示器
@@ -144,7 +144,7 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   let unit_dimensions = @math.Vec2D(40.0, 40.0) 
   let new_triangle = @system.Entity::new()
   @position.positions.set(new_triangle, pos)
-  movement_stats.set(new_triangle, { speed: 0.0 })
+  movement_stats.set(new_triangle, { speed: 1.0 })
 
   let triangle_shape_geom = @sprite.Shape::triangle(40.0, 0.0)
 
@@ -166,7 +166,7 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_triangle, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 0.0, attack_cooldown: 100.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_triangle, { attack_range: 165.0, attack_damage: 0.0, attack_cooldown: 100.0, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 ,effect_duration: 0.0})
   teams.set(new_triangle, team)
   
   dynamic_transforms.set(new_triangle, {
@@ -196,7 +196,7 @@ fn add_new_tank(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_tank, { current: 100.0, max: 100.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_tank, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 1.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 })
+  combat_stats.set(new_tank, { attack_range: 165.0, attack_damage: 10.0, attack_cooldown: 1.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Bullet, aoe_radius: 10.0 ,effect_duration: 0.0})
   teams.set(new_tank, team)
   
   _connect_player_unit_to_train(new_tank, team)
@@ -216,7 +216,7 @@ fn add_new_soldier(pos: @math.Vec2D, team: Team) -> Unit {
   let (bar_bg, bar_fg) = attach_health_bar()
   
   healths.set(new_soldier, { current: 100.0, max: 100.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
-  combat_stats.set(new_soldier, { attack_range: 65.0, attack_damage: 10.0, attack_cooldown: 0.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Melee, aoe_radius: 0.0 })
+  combat_stats.set(new_soldier, { attack_range: 65.0, attack_damage: 10.0, attack_cooldown: 0.5, current_cooldown: 0.0, aggro_range: 300.0, attack_type: AttackType::Melee, aoe_radius: 0.0 ,effect_duration: 0.0})
   teams.set(new_soldier, team)
 
   _connect_player_unit_to_train(new_soldier, team)

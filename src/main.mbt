@@ -48,6 +48,7 @@ fn main {
     .add_system(projectile_system, schedule=@system.Schedule::Update)       // 5. 抛射物飞行
     .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
     //.add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
+    .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
     
     
     // --- 执行与反馈层 ---

@@ -16,6 +16,7 @@ pub struct CombatStats {
   aggro_range: Double
   attack_type: AttackType
   aoe_radius: Double
+  effect_duration: Double
 }
 
 pub enum AttackType {

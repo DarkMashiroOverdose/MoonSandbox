@@ -16,10 +16,11 @@ struct Debuff {
 
 /// 抛射物的命中效果
 /// 抛射物的命中效果
-enum ProjectileEffect {
-  SingleTarget(Double)            // 包含一个 Double 类型的伤害值
-  AreaOfEffect(Double, Double)    // 包含伤害值(Double)和半径(Double)
-  ApplyDebuff(DebuffType, Double) // 包含 Debuff 类型和持续时间(Double)
+pub enum ProjectileEffect {
+  SingleTarget(Double)
+  AreaOfEffect(Double, Double)
+  ApplyDebuff(DebuffType, Double)
+  CreateHazardousArea(Double, Double, Double)
 } derive(Show)
 /// 抛射物组件，描述了一个飞行中的子弹
 struct Projectile {
@@ -46,9 +47,20 @@ fn execute_bullet_attack(attacker: @system.Entity, target: @system.Entity, stats
   
   // 安全地获取攻击者的阵营信息
   if teams.get(attacker) is Some(attacker_team) {
-    // 1. 定义子弹的命中效果
-    //    这里可以根据 stats 或者其他逻辑变得更复杂
-    let effect = ProjectileEffect::AreaOfEffect(stats.attack_damage,100.0)
+    let effect = if stats.effect_duration > 0.0 {
+      // 如果有持续时间，就创建“危险区域”效果
+      ProjectileEffect::CreateHazardousArea(
+        stats.aoe_radius,       // 从 stats 读取半径
+        stats.attack_damage,     // 从 stats 读取每秒伤害
+        stats.effect_duration, // 从 stats 读取持续时间
+      )
+    } else if stats.aoe_radius > 0.0 {
+      // 如果没有持续时间，但有范围，就创建“范围伤害”效果
+      ProjectileEffect::AreaOfEffect(stats.attack_damage, stats.aoe_radius)
+    } else {
+      // 否则，就是普通的“单体伤害”效果
+      ProjectileEffect::SingleTarget(stats.attack_damage)
+    }
 
     // 2. 定义子弹的视觉外观
     //    未来可以根据单位类型或武器类型改变外观
@@ -202,6 +214,9 @@ fn apply_projectile_effect(proj_data: Projectile, hit_pos: @math.Vec2D) -> Unit 
       // 委托给“施加Debuff”函数
       effect_apply_debuff(proj_data.target, effect, duration)
     }
+    CreateHazardousArea(radius, dps, duration) => {
+      spawn_hazardous_area(hit_pos, radius, dps, duration, proj_data.source_team)
+    }
   }
 }
 
@@ -236,4 +251,71 @@ fn debuff_system(_backend: &@system.Backend) -> Unit {
       active_debuffs.set(unit, updated_debuffs)
     }
   })
+}
+
+pub struct HazardousArea {
+  source_team: Team         // 区域所属的队伍
+  damage_per_second: Double // 每秒造成的伤害
+  radius: Double            // 伤害范围的半径
+
+  mut remaining_duration: Double // 区域剩余的持续时间
+  mut tick_timer: Double         // 伤害判定的“心跳”计时器
+}
+
+pub let hazardous_areas: Map[@system.Entity, HazardousArea] = Map::new()
+
+fn spawn_hazardous_area(pos: @math.Vec2D, radius: Double, dps: Double, duration: Double, team: Team) -> Unit {
+  println("[Log] Spawning hazardous area at (\{pos[X]}, \{pos[Y]})")
+  let area_entity = @system.Entity::new()
+
+  // 1. 设置位置和外观
+  @position.positions.set(area_entity, pos)
+  let shape = @sprite.ColoredShape::new(@sprite.Shape::circle(radius), @sprite.DrawStyle::fill("rgba(140, 255, 140, 0.5)")) // 半透明的绿色
+  let sprite = @sprite.Sprite::from_shape(shape, 50, layer=@sprite.RenderLayer::game_world()) // z-index较低，在单位下方
+  @sprite.sprites.set(area_entity, sprite)
+
+  // 2. 附加核心的逻辑组件
+  hazardous_areas.set(area_entity, {
+    source_team: team,
+    damage_per_second: dps,
+    radius: radius,
+    remaining_duration: duration,
+    tick_timer: 1.0, // 初始设为1，让它在1秒后造成第一次伤害
+  })
+}
+
+fn hazardous_area_system(_backend: &@system.Backend) -> Unit {
+  let delta_seconds = 1.0 / 60.0
+
+  for area_entity, area_data in hazardous_areas {
+    // 1. 更新持续时间
+    area_data.remaining_duration -= delta_seconds
+
+    if area_data.remaining_duration <= 0.0 {
+      // 区域已过期，提交给清理系统
+      entities_to_cleanup.val.push(area_entity)
+      hazardous_areas.remove(area_entity)
+      continue
+    }
+
+    // 2. 更新伤害“心跳”计时器
+    area_data.tick_timer -= delta_seconds
+    if area_data.tick_timer <= 0.0 {
+      // a. 重置计时器
+      area_data.tick_timer = 1.0 // 每秒造成一次伤害
+
+      // b. 对范围内的所有敌人造成伤害
+      if @position.positions.get(area_entity) is Some(area_pos) {
+        effect_apply_aoe_damage(
+          area_pos.0, 
+          area_data.radius, 
+          area_data.damage_per_second, // 伤害值就是dps
+          area_data.source_team,
+        )
+      }
+    }
+
+    // 3. 将更新后的数据写回
+    hazardous_areas.set(area_entity, area_data)
+  }
 }
