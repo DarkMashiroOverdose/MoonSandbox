@@ -45,23 +45,27 @@ fn buff_system(_backend: &@system.Backend) -> Unit {
 fn get_computed_stats(unit: @system.Entity) -> Option[CombatStats] {
   if combat_stats.get(unit) is Some(base_stats) {
     if active_buffs.get(unit) is Some(buff_list) {
-      // computed_stats 变量需要是 mut，因为我们会不断用新副本替换它
       let mut computed_stats = base_stats
       
       for buff in buff_list {
         match buff.buff_type {
           AddDamage(value) => {
-            // 不要原地修改，而是创建一个新副本并替换
-            computed_stats = { 
-              ..computed_stats, 
-              attack_damage: computed_stats.attack_damage + value 
-            }
+            let new_effects = computed_stats.on_hit_effects.map(fn(effect) {
+              match effect {
+                DealDamage(damage, vfx_opt) => OnHitEffect::DealDamage(damage + value, vfx_opt)
+                other_effect => other_effect
+              }
+            })
+            computed_stats = { ..computed_stats, on_hit_effects: new_effects }
           }
           MultiplyDamage(factor) => {
-            computed_stats = { 
-              ..computed_stats, 
-              attack_damage: computed_stats.attack_damage * factor
-            }
+            let new_effects = computed_stats.on_hit_effects.map(fn(effect) {
+              match effect {
+                DealDamage(damage, vfx_opt) => OnHitEffect::DealDamage(damage * factor, vfx_opt)
+                other_effect => other_effect
+              }
+            })
+            computed_stats = { ..computed_stats, on_hit_effects: new_effects }
           }
           AddCritRate(value) => {
             computed_stats = {
@@ -111,7 +115,7 @@ pub fn add_buff(target: @system.Entity, buff_type: BuffType, duration: Double) -
   } else {
     active_buffs.set(target, [new_buff])
   }
-  
+
 }
 fn get_computed_movement_stats(unit: @system.Entity) -> Option[MovementStats] {
   if movement_stats.get(unit) is Some(base_stats) {

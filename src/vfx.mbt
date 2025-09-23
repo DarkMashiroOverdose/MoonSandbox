@@ -9,6 +9,7 @@ pub enum VFX_Type {
   PoisonCloud
   PoisonCloudRed
   TankExplosion
+  SpeedLow
 } derive(Eq, Show, Hash)
 
 /// 用一个枚举来描述特效的【静态外观】
@@ -46,7 +47,7 @@ let explosion_frames: Array[@sprite.AnimationFrame] = @sprite.frames_from_atlas(
   height=150.0,
 )
 
-let explosion_animation: @sprite.Animation = @sprite.Animation::new(explosion_frames, loop_=false, rate=0.5)
+let explosion_animation: @sprite.Animation = @sprite.Animation::new(explosion_frames, loop_=false, rate=100)
 fn setup_vfx_library() -> Unit {
   // 模板1：一个简单的子弹命中爆炸效果
   vfx_library.set(VFX_Type::BulletImpact, {
@@ -93,6 +94,23 @@ fn setup_vfx_library() -> Unit {
       }),
     },
     z_index: 50,
+  })
+  vfx_library.set(VFX_Type::SpeedLow, {
+    sprite_template: SpriteTemplate::Shape(
+        @sprite.Shape::rect(5,5,0.775), 
+        @sprite.DrawStyle::fill("rgba(17, 0, 255, 1)")),
+    behavior: {
+      // 【核心】指定生命周期模式
+      lifecycle: VFX_Lifecycle::Timer(0.5),
+      dynamic_transform: Some({
+        rotation_speed: 0.5,
+        scale_speed: 1.0,
+        scale_amplitude: 0.1,
+        _current_angle: 0.0,
+        _time_elapsed: 0.0,
+      }),
+    },
+    z_index: 120,
   })
 }
 

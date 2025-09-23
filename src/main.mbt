@@ -76,9 +76,9 @@ fn main {
 fn init_game(backend: &@system.Backend) -> Unit {
   add_map()
   setup_vfx_library()
-  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
-  add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
-  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  //add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
+  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_triangle(@math.Vec2D(350.0, 500.0), Team::Player)
 
   
@@ -150,7 +150,7 @@ fn cleanup_system(_backend: &@system.Backend) -> Unit {
 
     // 2. 执行通用的、彻底的清理逻辑
     for dead_unit in entities_to_cleanup.val {
-      println("[Log] Cleanup System is processing: \{dead_unit}")
+      /////println("[Log] Cleanup System is processing: \{dead_unit}")
       
       // 销毁所有视觉实体
       @system.Entity::destroy(dead_unit)

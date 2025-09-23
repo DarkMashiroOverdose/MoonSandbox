@@ -10,7 +10,7 @@ let attack_targets: Map[@system.Entity, @system.Entity] = Map::new()
 
 pub struct CombatStats {
   attack_range: Double
-  attack_damage: Double
+  on_hit_effects: Array[OnHitEffect]
   attack_cooldown: Double
   current_cooldown: Double
   aggro_range: Double
@@ -159,12 +159,67 @@ fn aggro_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
+
+fn apply_all_effects(source: @system.Entity, target: @system.Entity, effects: Array[OnHitEffect]) -> Unit {
+  for effect in effects {
+    match effect {
+      DealDamage(damage, vfx_opt) => {
+        // 调用我们现有的伤害函数
+        apply_damage(source, target, damage)
+        if vfx_opt is Some(vfx_type) {
+          if @position.positions.get(target) is Some(target_pos) {
+            // 3. 发出 VFX 播放请求
+            vfx_requests.val.push({
+              vfx_type: vfx_type,
+              position: target_pos.0,
+              rotation: 0.0,
+            })
+          }
+        }
+      }
+      ApplyBuff(buff_type, duration, vfx_opt) => {
+        // 调用我们现有的 Buff 添加函数
+        add_buff(target, buff_type, duration)
+        if vfx_opt is Some(vfx_type) {
+          if @position.positions.get(target) is Some(target_pos) {
+            // 3. 发出 VFX 播放请求
+            vfx_requests.val.push({
+              vfx_type: vfx_type,
+              position: target_pos.0,
+              rotation: 0.0,
+            })
+          }
+        }
+      }
+      CreateHazardousArea(tick_effects, radius, duration, vfx_opt) => {
+        if @position.positions.get(target) is Some(target_pos) && teams.get(source) is Some(source_team) {
+            spawn_hazardous_area(
+                source, 
+                target_pos.0, 
+                radius, 
+                duration, 
+                source_team, 
+                vfx_opt, // 传递VFX信息
+                tick_effects // 传递效果列表
+            )
+        }
+      }
+      // ... 未来在这里扩展 ...
+    }
+  }
+}
+
 fn execute_aoe_melee_attack(attacker: @system.Entity, stats: CombatStats) -> Unit {
   if @position.positions.get(attacker) is Some(attacker_pos) && teams.get(attacker) is Some(attacker_team) {
     println("[Log] Executing AoE Melee Attack from \{attacker}")
     
-    let damage = stats.attack_damage
-    effect_apply_aoe_damage(attacker, attacker_pos.0, stats.aoe_radius, stats.attack_damage, attacker_team)
+    apply_effects_in_area(
+      attacker, 
+      attacker_pos.0, 
+      stats.aoe_radius, 
+      stats.on_hit_effects, 
+      attacker_team
+    )
   }
 }
 /// ------------------------
@@ -192,36 +247,38 @@ fn apply_damage(attacker: @system.Entity, target: @system.Entity, base_damage: D
 
 fn execute_melee_attack(attacker: @system.Entity, target: @system.Entity, stats: CombatStats) -> Unit {
   println("[Log] Executing Melee Attack from \{attacker} to \{target}")
-  effect_apply_single_target_damage(attacker, target, stats.attack_damage)
+  apply_all_effects(attacker, target, stats.on_hit_effects)
 }
-
-fn effect_apply_single_target_damage(attacker: @system.Entity, target: @system.Entity, damage: Double) -> Unit {
-  // 将 attacker 传递下去
-  apply_damage(attacker, target, damage)
-}
-/// 效果函数2：以某个点为中心，对范围内的敌方单位造成伤害
-fn effect_apply_aoe_damage(
-  attacker: @system.Entity, // 新增攻击者
-  origin_pos: @math.Vec2D, 
-  radius: Double, 
-  damage: Double, 
-  source_team: Team
+fn apply_effects_in_area(
+    source: @system.Entity,          // 效果的来源 (攻击者/区域制造者)
+    origin_pos: @math.Vec2D,         // 效果的中心点
+    radius: Double,                  // 效果的半径
+    effects: Array[OnHitEffect],     // 要施加的“效果工具箱”
+    source_team: Team                // 来源的阵营
 ) -> Unit {
-  // 遍历所有单位，检查是否在范围内且为敌方
-  //println("[Log B - AoE Damage] Function called. Source team: \{source_team}")
+  // 1. 遍历所有单位，检查是否在范围内且为敌方
   for unit in all_units.val {
-    // 检查单位是否为敌方
     if teams.get(unit) is Some(unit_team) && unit_team != source_team {
-      let is_hostile = unit_team != source_team
-      //println("[Log C - Target Check] Checking unit \{unit} (Team: \{unit_team}). Is hostile? \{is_hostile}")
       if @position.positions.get(unit) is Some(unit_pos) {
-        // 检查是否在伤害半径内
-        
+        // 2. 检查是否在伤害半径内
         if unit_pos.0.distance_to(origin_pos) <= radius {
-          apply_damage(attacker, unit, damage)
+          // 3. 对范围内的每个敌人，应用全套效果
+          apply_all_effects(source, unit, effects)
         }
       }
     }
   }
 }
 
+pub enum OnHitEffect {
+  DealDamage(Double, Option[VFX_Type])              // 造成 xx 点伤害
+  ///(buff种类,持续时间)
+  ApplyBuff(BuffType, Double, Option[VFX_Type])     // 施加 xx Buff，持续 yy 秒
+  ///(半径,持续时间,每秒伤害)
+  CreateHazardousArea(
+    Array[OnHitEffect], // 该区域每次触发时的效果
+    Double,                      // 区域半径
+    Double, 
+    Option[VFX_Type]                   // 区域持续时间
+  )
+}

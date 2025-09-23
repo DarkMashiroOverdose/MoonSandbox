@@ -2,34 +2,21 @@
 // 抛射物 & Debuff 相关定义
 // ---------------------------------
 
-/// 定义 Debuff 的具体类型
-enum DebuffType {
-  Slow(Double) // factor: 速度乘数, e.g., 0.5 代表减速50%
-  // 未来可以扩展: Poison(damage_per_sec: Double), Stun, ...
-} derive(Eq, Show)
-
-/// 附加在单位身上的 Debuff 组件
-struct Debuff {
-  kind: DebuffType
-  remaining_duration: Double
-}
-
 /// 抛射物的命中效果
-/// 抛射物的命中效果
-pub enum ProjectileEffect {
-  SingleTarget(Double)
-  AreaOfEffect(Double, Double)
-  ApplyDebuff(DebuffType, Double)
-  CreateHazardousArea(Double, Double, Double)
-} derive(Show)
+//pub enum ProjectileEffect {
+//  SingleTarget(Double)
+//  AreaOfEffect(Double, Double)
+//  ApplyDebuff(DebuffType, Double)
+//  CreateHazardousArea(Double, Double, Double)
+//} derive(Show)
+
 /// 抛射物组件，描述了一个飞行中的子弹
 struct Projectile {
   source: @system.Entity 
   source_team: Team // 发射者的队伍
   target: @system.Entity
   speed: Double
-  effect: ProjectileEffect
-
+  on_hit_effects: Array[OnHitEffect]
   max_turn_rate: Double // 每秒最大转向角度（单位：弧度）
   navigation_constant: Double // 比例导引常数 N
   on_hit_vfx: VFX_Type    // 【新增】视觉效果
@@ -40,48 +27,27 @@ struct Projectile {
 // 存储所有飞行中的抛射物
 let projectiles: Map[@system.Entity, Projectile] = Map::new()
 // 存储所有单位当前激活的 Debuff
-let active_debuffs: Map[@system.Entity, Array[Debuff]] = Map::new()
-
 const PROJECTILE_HIT_THRESHOLD: Double = 5.0 // 命中判定距离
 
 /// 全新函数：专门处理子弹攻击的执行逻辑
 fn execute_bullet_attack(attacker: @system.Entity, target: @system.Entity, stats: CombatStats) -> Unit {
   println("[Log] Executing Bullet Attack from \{attacker} to \{target}")
   
-  // 安全地获取攻击者的阵营信息
   if teams.get(attacker) is Some(attacker_team) {
-    let effect = if stats.effect_duration > 0.0 {
-      // 如果有持续时间，就创建“危险区域”效果
-      ProjectileEffect::CreateHazardousArea(
-        stats.aoe_radius,       // 从 stats 读取半径
-        stats.attack_damage,     // 从 stats 读取每秒伤害
-        stats.effect_duration, // 从 stats 读取持续时间
-      )
-    } else if stats.aoe_radius > 0.0 {
-      // 如果没有持续时间，但有范围，就创建“范围伤害”效果
-      ProjectileEffect::AreaOfEffect(stats.attack_damage, stats.aoe_radius)
-    } else {
-      // 否则，就是普通的“单体伤害”效果
-      ProjectileEffect::SingleTarget(stats.attack_damage)
-    }
-
-    // 2. 定义子弹的视觉外观
-    //    未来可以根据单位类型或武器类型改变外观
     let bullet_sprite = @sprite.Sprite::from_shape(
         @sprite.ColoredShape::new(@sprite.Shape::circle(5.0), @sprite.DrawStyle::fill("red")),
-        200, // z-index
+        200, 
         layer=@sprite.RenderLayer::game_world(),
     )
 
-    // 3. 调用“军工厂”函数，传入所有配置好的参数
     spawn_projectile(
       attacker,
       target,
       attacker_team,
-      effect,
-      5.0, // 子弹飞行速度, 未来也可以放入 CombatStats
+      stats.on_hit_effects,
+      5.0, 
       bullet_sprite,
-      stats.on_hit_vfx, // 【新增】从 stats 中读取特效指令并传递
+      stats.on_hit_vfx,
       stats.area_effect_vfx,
     )
   }
@@ -91,34 +57,31 @@ fn spawn_projectile(
   source: @system.Entity,
   target: @system.Entity,
   source_team: Team,
-  effect: ProjectileEffect,
+  effects: Array[OnHitEffect], 
   speed: Double,
-  sprite: @sprite.Sprite, // 直接传递配置好的 Sprite
-  on_hit_vfx: VFX_Type,    // 【新增】视觉效果
+  sprite: @sprite.Sprite,
+  on_hit_vfx: VFX_Type,
   area_effect_vfx: Option[VFX_Type]
 ) -> Unit {
   if @position.positions.get(source) is Some(source_pos) &&
-     @position.positions.get(target) is Some(target_pos){
+     @position.positions.get(target) is Some(target_pos) {
     let projectile_entity = @system.Entity::new()
 
-    // 1. 设置初始位置、Sprite 和抛射物组件
     @position.positions.set(projectile_entity, source_pos.0)
     @sprite.sprites.set(projectile_entity, sprite)
     projectiles.set(projectile_entity, {
-      source : source,
+      source: source,
       source_team: source_team,
       target: target,
       speed: speed,
-      effect: effect,
-      max_turn_rate: 0.5, // 每秒最多转 π 弧度 (180度)
-      navigation_constant: 1.5, // 一个比较灵敏的制导系数
-      on_hit_vfx: on_hit_vfx, // 【新增】将指令存入子弹组件
+      on_hit_effects: effects,
+      max_turn_rate: 0.5,
+      navigation_constant: 1.5,
+      on_hit_vfx: on_hit_vfx,
       area_effect_vfx: area_effect_vfx
     })
     let initial_direction = (target_pos.0 - source_pos.0).normalize()
     @velocity.velocities.set(projectile_entity, initial_direction.scalar_mul(speed))
-    // 2. 注意：这里【不】设置速度(velocity)！
-    // 速度的计算和更新由 projectile_system 每帧动态处理，以确保始终飞向目标。
   }
 }
 pub fn projectile_system(_backend: &@system.Backend) -> Unit {
@@ -197,40 +160,29 @@ fn apply_projectile_effect(proj_data: Projectile, actual_hit_target: @system.Ent
     position: hit_pos,
     rotation: 0.0,
   })
-  match proj_data.effect {
-    SingleTarget(damage) => {
-      // 委托给“单体伤害”函数
-      effect_apply_single_target_damage(proj_data.source, actual_hit_target, damage)
-    }
-    AreaOfEffect(damage, radius) => {
-      // 委托给“范围伤害”函数
-      effect_apply_aoe_damage(proj_data.source, hit_pos, radius, damage, proj_data.source_team)
-    }
-    ApplyDebuff(effect, duration) => {
-      // 委托给“施加Debuff”函数
-      //effect_apply_debuff(proj_data.target, effect, duration)
-      println("[log]ADD BUFF")
-    }
-    CreateHazardousArea(radius, dps, duration) => {
-      spawn_hazardous_area(proj_data.source, hit_pos, radius, dps, duration, proj_data.source_team, proj_data.area_effect_vfx)
-    }
-  }
+  apply_all_effects(proj_data.source, actual_hit_target, proj_data.on_hit_effects)
 }
-
 
 pub struct HazardousArea {
   source: @system.Entity
-  source_team: Team         // 区域所属的队伍
-  damage_per_second: Double // 每秒造成的伤害
-  radius: Double            // 伤害范围的半径
-
-  remaining_duration: Double // 区域剩余的持续时间
-  tick_timer: Double         // 伤害判定的“心跳”计时器
+  source_team: Team 
+  on_tick_effects: Array[OnHitEffect] // << 用这个替换掉 damage_per_second
+  radius: Double
+  remaining_duration: Double
+  tick_timer: Double
 }
 
 pub let hazardous_areas: Map[@system.Entity, HazardousArea] = Map::new()
 
-fn spawn_hazardous_area(source: @system.Entity, pos: @math.Vec2D, radius: Double, dps: Double, duration: Double, team: Team, vfx_type_opt: Option[VFX_Type]) -> Unit {
+fn spawn_hazardous_area(
+    source: @system.Entity,
+    pos: @math.Vec2D, 
+    radius: Double, 
+    duration: Double, 
+    team: Team, 
+    vfx_type_opt: Option[VFX_Type],
+    tick_effects: Array[OnHitEffect] // << 参数更新
+) -> Unit {
   println("[Log Spawning] Spawning hazardous area at (\{pos[X]}, \{pos[Y]})")
   let area_entity = @system.Entity::new()
   @position.positions.set(area_entity, pos)
@@ -242,16 +194,17 @@ fn spawn_hazardous_area(source: @system.Entity, pos: @math.Vec2D, radius: Double
       rotation: 0.0,
     })
   }
+
+  // 使用更新后的 HazardousArea 结构体
   hazardous_areas.set(area_entity, {
     source: source,
     source_team: team,
-    damage_per_second: dps,
+    on_tick_effects: tick_effects, // << 把收到的效果列表存进去
     radius: radius,
     remaining_duration: duration,
-    tick_timer: 1.0, // 初始设为1，让它在1秒后造成第一次伤害
+    tick_timer: 1.0, 
   })
 }
-
 pub fn hazardous_area_system(_backend: &@system.Backend) -> Unit {
   let delta_seconds = 1.0 / 60.0
   
@@ -269,12 +222,12 @@ pub fn hazardous_area_system(_backend: &@system.Backend) -> Unit {
 
       if new_tick_timer <= 0.0 {
         if @position.positions.get(area_entity) is Some(area_pos) {
-          effect_apply_aoe_damage(
-            area_data.source, // 在这里用原始的 area_data 就很清晰
-            area_pos.0, 
-            area_data.radius, 
-            area_data.damage_per_second,
-            area_data.source_team,
+          apply_effects_in_area(
+            area_data.source,
+            area_pos.0,
+            area_data.radius,
+            area_data.on_tick_effects, // << 核心：传递区域自带的“效果工具箱”
+            area_data.source_team
           )
         }
         let final_updated_data = {
