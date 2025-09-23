@@ -17,6 +17,7 @@ pub struct CombatStats {
   attack_type: AttackType
   aoe_radius: Double
   effect_duration: Double
+  crit_rate: Double
   on_hit_vfx: VFX_Type 
   area_effect_vfx: Option[VFX_Type] 
 }
@@ -43,9 +44,9 @@ fn combat_system(_backend: &@system.Backend) -> Unit {
   //选择攻击对象和执行攻击
   attack_targets.each(fn(attacker, target) {
     if target.is_alive() && healths.get(target) is Some(_) {
-      if combat_stats.get(attacker) is Some(attacker_stats) && 
-         @position.positions.get(attacker) is Some(attacker_pos) &&
-         @position.positions.get(target) is Some(target_pos) {
+      if get_computed_stats(attacker) is Some(attacker_stats) && 
+       @position.positions.get(attacker) is Some(attacker_pos) &&
+       @position.positions.get(target) is Some(target_pos) {
 
         let distance = attacker_pos.0.distance_to(target_pos.0)
         if distance > attacker_stats.attack_range {
@@ -163,55 +164,64 @@ fn execute_aoe_melee_attack(attacker: @system.Entity, stats: CombatStats) -> Uni
     println("[Log] Executing AoE Melee Attack from \{attacker}")
     
     let damage = stats.attack_damage
-    effect_apply_aoe_damage(attacker_pos.0, stats.aoe_radius, stats.attack_damage, attacker_team)
+    effect_apply_aoe_damage(attacker, attacker_pos.0, stats.aoe_radius, stats.attack_damage, attacker_team)
   }
 }
 /// ------------------------
 /// 伤害与战斗模块
 /// ------------------------
-fn apply_damage(target: @system.Entity, damage: Double) -> Unit {
+let global_rng: @random.Rand = @random.Rand::new()
+
+fn apply_damage(attacker: @system.Entity, target: @system.Entity, base_damage: Double) -> Unit {
   if healths.get(target) is Some(health) {
-    let new_health = { ..health, current: health.current - damage }
+    
+    let mut final_damage = base_damage
+    
+    if combat_stats.get(attacker) is Some(stats) {
+      let roll = global_rng.double()
+      if roll < stats.crit_rate {
+        final_damage = base_damage * 2.0
+        println("[Log] Critical Hit!")
+      }
+    }
+
+    let new_health = { ..health, current: health.current - final_damage }
     healths.set(target, new_health)
   }
 }
+
 fn execute_melee_attack(attacker: @system.Entity, target: @system.Entity, stats: CombatStats) -> Unit {
   println("[Log] Executing Melee Attack from \{attacker} to \{target}")
-  effect_apply_single_target_damage(target, stats.attack_damage)
+  effect_apply_single_target_damage(attacker, target, stats.attack_damage)
 }
 
-fn effect_apply_single_target_damage(target: @system.Entity, damage: Double) -> Unit {
-  // 这个逻辑其实就是 apply_damage，我们可以直接复用它
-  apply_damage(target, damage)
+fn effect_apply_single_target_damage(attacker: @system.Entity, target: @system.Entity, damage: Double) -> Unit {
+  // 将 attacker 传递下去
+  apply_damage(attacker, target, damage)
 }
-
 /// 效果函数2：以某个点为中心，对范围内的敌方单位造成伤害
 fn effect_apply_aoe_damage(
+  attacker: @system.Entity, // 新增攻击者
   origin_pos: @math.Vec2D, 
   radius: Double, 
   damage: Double, 
   source_team: Team
 ) -> Unit {
   // 遍历所有单位，检查是否在范围内且为敌方
-  println("[Log B - AoE Damage] Function called. Source team: \{source_team}")
+  //println("[Log B - AoE Damage] Function called. Source team: \{source_team}")
   for unit in all_units.val {
     // 检查单位是否为敌方
     if teams.get(unit) is Some(unit_team) && unit_team != source_team {
       let is_hostile = unit_team != source_team
-      println("[Log C - Target Check] Checking unit \{unit} (Team: \{unit_team}). Is hostile? \{is_hostile}")
+      //println("[Log C - Target Check] Checking unit \{unit} (Team: \{unit_team}). Is hostile? \{is_hostile}")
       if @position.positions.get(unit) is Some(unit_pos) {
         // 检查是否在伤害半径内
         
         if unit_pos.0.distance_to(origin_pos) <= radius {
-          apply_damage(unit, damage)
+          apply_damage(attacker, unit, damage)
         }
       }
     }
   }
 }
 
-/// 效果函数3：对单个目标施加 Debuff (当前为占位符)
-fn effect_apply_debuff(target: @system.Entity, effect: DebuffType, duration: Double) -> Unit {
-  // 直接调用简化的 apply_debuff 占位符函数
-  apply_debuff(target, effect, duration)
-}

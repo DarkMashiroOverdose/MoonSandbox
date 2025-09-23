@@ -49,6 +49,7 @@ fn main {
     .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
     //.add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
     .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
+    .add_system(buff_system, schedule=@system.Schedule::Update) //buff
     .add_system(vfx_spawner_system, schedule=@system.Schedule::Update)
     .add_system(vfx_update_system, schedule=@system.Schedule::Update)
     

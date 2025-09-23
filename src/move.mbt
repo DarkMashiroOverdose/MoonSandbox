@@ -33,7 +33,7 @@ pub fn enemy_movement_system(_backend: &@system.Backend) -> Unit {
          if @position.positions.get(entity) is Some(enemy_pos) &&
             @position.positions.get(target) is Some(target_pos) &&
             combat_stats.get(entity) is Some(combat_stats) &&
-            movement_stats.get(entity) is Some(move_stats) {
+            get_computed_movement_stats(entity) is Some(move_stats)  {
             
             if enemy_pos.0.distance_to(target_pos.0) > combat_stats.attack_range {
                 let direction = (target_pos.0 - enemy_pos.0).normalize()

@@ -24,6 +24,7 @@ pub enum ProjectileEffect {
 } derive(Show)
 /// 抛射物组件，描述了一个飞行中的子弹
 struct Projectile {
+  source: @system.Entity 
   source_team: Team // 发射者的队伍
   target: @system.Entity
   speed: Double
@@ -104,6 +105,7 @@ fn spawn_projectile(
     @position.positions.set(projectile_entity, source_pos.0)
     @sprite.sprites.set(projectile_entity, sprite)
     projectiles.set(projectile_entity, {
+      source : source,
       source_team: source_team,
       target: target,
       speed: speed,
@@ -180,7 +182,7 @@ pub fn projectile_system(_backend: &@system.Backend) -> Unit {
 
           // 对【实际撞到的目标】应用效果
           if @position.positions.get(actual_hit_target) is Some(hit_pos) {
-            apply_projectile_effect(proj_data, hit_pos.0)
+            apply_projectile_effect(proj_data, actual_hit_target, hit_pos.0)
             
           }
         }
@@ -188,7 +190,7 @@ pub fn projectile_system(_backend: &@system.Backend) -> Unit {
     }
   }
 }
-fn apply_projectile_effect(proj_data: Projectile, hit_pos: @math.Vec2D) -> Unit {
+fn apply_projectile_effect(proj_data: Projectile, actual_hit_target: @system.Entity, hit_pos: @math.Vec2D) -> Unit {
   println("[Log - VFX Request] An on-hit VFX of type '\{proj_data.on_hit_vfx}' was requested.")
   vfx_requests.val.push({
     vfx_type: proj_data.on_hit_vfx,
@@ -198,67 +200,37 @@ fn apply_projectile_effect(proj_data: Projectile, hit_pos: @math.Vec2D) -> Unit 
   match proj_data.effect {
     SingleTarget(damage) => {
       // 委托给“单体伤害”函数
-      effect_apply_single_target_damage(proj_data.target, damage)
+      effect_apply_single_target_damage(proj_data.source, actual_hit_target, damage)
     }
     AreaOfEffect(damage, radius) => {
       // 委托给“范围伤害”函数
-      effect_apply_aoe_damage(hit_pos, radius, damage, proj_data.source_team)
+      effect_apply_aoe_damage(proj_data.source, hit_pos, radius, damage, proj_data.source_team)
     }
     ApplyDebuff(effect, duration) => {
       // 委托给“施加Debuff”函数
-      effect_apply_debuff(proj_data.target, effect, duration)
+      //effect_apply_debuff(proj_data.target, effect, duration)
+      println("[log]ADD BUFF")
     }
     CreateHazardousArea(radius, dps, duration) => {
-      spawn_hazardous_area(hit_pos, radius, dps, duration, proj_data.source_team, proj_data.area_effect_vfx)
+      spawn_hazardous_area(proj_data.source, hit_pos, radius, dps, duration, proj_data.source_team, proj_data.area_effect_vfx)
     }
   }
 }
 
-
-fn apply_debuff(target: @system.Entity, effect: DebuffType, duration: Double) -> Unit {
-  let new_debuff = { kind: effect, remaining_duration: duration }
-  if active_debuffs.get(target) is Some(existing_debuffs) {
-    let new_debuffs = existing_debuffs
-    new_debuffs.push(new_debuff)
-    active_debuffs.set(target, new_debuffs)
-  } else {
-    active_debuffs.set(target, [new_debuff])
-  }
-}
-//占位符debuff系统
-fn debuff_system(_backend: &@system.Backend) -> Unit {
-  let delta_seconds = 1.0 / 60.0
-  active_debuffs.each(fn(unit, debuffs) {
-    // 过滤掉已过期的 Debuff，只保留剩余时间 > 0 的
-    let updated_debuffs = debuffs.filter_map(fn(debuff) {
-      let new_duration = debuff.remaining_duration - delta_seconds
-      if new_duration > 0.0 {
-        Some({ ..debuff, remaining_duration: new_duration })
-      } else {
-        None // 返回 None 会被 filter_map 自动过滤掉
-      }
-    })
-
-    if updated_debuffs.length() == 0 {
-      active_debuffs.remove(unit) // 如果没有 Debuff 了，直接从 Map 中移除
-    } else {
-      active_debuffs.set(unit, updated_debuffs)
-    }
-  })
-}
 
 pub struct HazardousArea {
+  source: @system.Entity
   source_team: Team         // 区域所属的队伍
   damage_per_second: Double // 每秒造成的伤害
   radius: Double            // 伤害范围的半径
 
-  mut remaining_duration: Double // 区域剩余的持续时间
-  mut tick_timer: Double         // 伤害判定的“心跳”计时器
+  remaining_duration: Double // 区域剩余的持续时间
+  tick_timer: Double         // 伤害判定的“心跳”计时器
 }
 
 pub let hazardous_areas: Map[@system.Entity, HazardousArea] = Map::new()
 
-fn spawn_hazardous_area(pos: @math.Vec2D, radius: Double, dps: Double, duration: Double, team: Team, vfx_type_opt: Option[VFX_Type]) -> Unit {
+fn spawn_hazardous_area(source: @system.Entity, pos: @math.Vec2D, radius: Double, dps: Double, duration: Double, team: Team, vfx_type_opt: Option[VFX_Type]) -> Unit {
   println("[Log Spawning] Spawning hazardous area at (\{pos[X]}, \{pos[Y]})")
   let area_entity = @system.Entity::new()
   @position.positions.set(area_entity, pos)
@@ -271,6 +243,7 @@ fn spawn_hazardous_area(pos: @math.Vec2D, radius: Double, dps: Double, duration:
     })
   }
   hazardous_areas.set(area_entity, {
+    source: source,
     source_team: team,
     damage_per_second: dps,
     radius: radius,
@@ -285,31 +258,40 @@ pub fn hazardous_area_system(_backend: &@system.Backend) -> Unit {
   for area_entity in hazardous_areas.keys() {
     if hazardous_areas.get(area_entity) is Some(area_data) {
       
-      let updated_data = area_data
+      let new_duration = area_data.remaining_duration - delta_seconds
+      let new_tick_timer = area_data.tick_timer - delta_seconds
       
-      updated_data.remaining_duration -= delta_seconds
-      
-      if updated_data.remaining_duration <= 0.0 {
+      if new_duration <= 0.0 {
         entities_to_cleanup.val.push(area_entity)
         hazardous_areas.remove(area_entity)
-        // 使用 continue 跳过本次循环的后续逻辑
         continue
       }
 
-      updated_data.tick_timer -= delta_seconds
-      if updated_data.tick_timer <= 0.0 {
-        updated_data.tick_timer = 1.0 
+      if new_tick_timer <= 0.0 {
         if @position.positions.get(area_entity) is Some(area_pos) {
           effect_apply_aoe_damage(
+            area_data.source, // 在这里用原始的 area_data 就很清晰
             area_pos.0, 
-            updated_data.radius, 
-            updated_data.damage_per_second,
-            updated_data.source_team,
+            area_data.radius, 
+            area_data.damage_per_second,
+            area_data.source_team,
           )
         }
+        let final_updated_data = {
+          ..area_data,
+          remaining_duration: new_duration,
+          tick_timer: 1.0,
+        }
+        hazardous_areas.set(area_entity, final_updated_data)
+
+      } else {
+        let final_updated_data = {
+          ..area_data,
+          remaining_duration: new_duration,
+          tick_timer: new_tick_timer,
+        }
+        hazardous_areas.set(area_entity, final_updated_data)
       }
-      
-      hazardous_areas.set(area_entity, updated_data)
     }
   }
 }
