@@ -27,7 +27,7 @@ pub enum AttackType {
   Ranged  // 长距离直接攻击
   AoE     // 近战范围伤害
 } derive(Show)
-fn combat_system(_backend: &@system.Backend) -> Unit {
+fn combat_system(backend: &@system.Backend) -> Unit {
   let delta_seconds = 1.0 / 60.0
 
   // 攻击冷却循环
@@ -56,7 +56,7 @@ fn combat_system(_backend: &@system.Backend) -> Unit {
           if attacker_stats.current_cooldown <= 0.0 {
             // 重置冷却
             combat_stats.set(attacker, { ..attacker_stats, current_cooldown: attacker_stats.attack_cooldown })
-
+            let _ = @audio.play_audio(backend, "../assets/sfx/Shoot8.wav", volume=1., loop_=false)
             //根据攻击类型进行调度
             match attacker_stats.attack_type {
               AttackType::Melee => {
