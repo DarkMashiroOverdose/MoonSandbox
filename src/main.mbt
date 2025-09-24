@@ -79,9 +79,9 @@ fn main {
 fn init_game(backend: &@system.Backend) -> Unit {
   add_map()
   setup_vfx_library()
-  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
-  //add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
-  //add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_block(@math.Vec2D(350.0, 500.0), Team::Player)
+  add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_triangle(@math.Vec2D(350.0, 500.0), Team::Player)
 
   
@@ -98,13 +98,51 @@ fn init_game(backend: &@system.Backend) -> Unit {
 
 
 
+fn add_repeating_background() -> Unit {
+  let map_width = 2000.0 // 例如，总宽度为 2000 像素
+  let map_height = 1500.0 // 例如，总高度为 1500 像素
 
+  let background_entity = @system.Entity::new()
+
+  @position.positions.set(background_entity, @math.Vec2D::zero())
+
+  let background_picture = @sprite.Picture::new(
+    @math.Vec2D(map_width, map_height),
+    "assets/background_tile.png",
+    repeat=@system.RepeatMode::Repeat,
+  )
+
+  let background_sprite = @sprite.Sprite::from_picture(
+    background_picture, 
+    -100, 
+  )
+
+  @sprite.sprites.set(background_entity, background_sprite)
+}
 fn add_map() -> Unit {
   let map_entity = @system.Entity::new()
-  @position.positions.set(map_entity, @math.Vec2D(0.0, 0.0))
-  let map_picture = @sprite.Picture::new(
-    @math.Vec2D(1048.0, 768.0), "assets/gray_map.png")
-  let map_sprite = @sprite.Sprite::from_picture(map_picture, 0)
+  @position.positions.set(map_entity, @math.Vec2D(-5.0, -5.0))
+  //let map_picture = @sprite.Picture::new(
+  //  @math.Vec2D(1048.0, 768.0), "assets/gray_map.png")
+  //let map_sprite = @sprite.Sprite::from_picture(map_picture, 0)
+  //let map_color = @sprite.ColoredShape::new(@sprite.Shape::rect(1048, 768, 0), @sprite.DrawStyle::fill("#000000"))
+  //let map_sprite = @sprite.Sprite::from_shape(map_color, 100, layer=@sprite.RenderLayer::game_world())
+
+  let background_entity = @system.Entity::new()
+
+  @position.positions.set(background_entity, @math.Vec2D::zero())
+
+  let background_picture = @sprite.Picture::new(
+    @math.Vec2D(1965, 1085),
+    "assets/background_tile.png",
+    repeat=@system.RepeatMode::Repeat,
+  )
+
+  let map_sprite = @sprite.Sprite::from_picture(
+    background_picture, 
+    -100, 
+  )
+  
   @sprite.sprites.set(map_entity, map_sprite)
 }
 
