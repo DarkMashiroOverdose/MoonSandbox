@@ -2,7 +2,7 @@ pub enum BuffType {
   AddDamage(Double)          // 增加固定数值的伤害
   MultiplyDamage(Double)       // 按百分比增加伤害 (例如 1.2 代表增加20%)
   AddCritRate(Double)          // 增加暴击率 (例如 0.1 代表增加10%)
-  AddEffectDuration(Double)    // 增加技能效果的持续时间
+  MultiplyEffectDuration(Double) //增加技能效果持续时间，不论是buff时长还是圈子持续时间
   MultiplyCooldown(Double)     // 乘以一个系数来改变攻击冷却 (例如 0.8 代表冷却缩短20%)
   AddAttackRange(Double)       // 增加攻击范围
   MultiplySpeed(Double) // 改变移动速度 (例如 1.5 代表速度提高50%)
@@ -73,11 +73,19 @@ fn get_computed_stats(unit: @system.Entity) -> Option[CombatStats] {
               crit_rate: computed_stats.crit_rate + value
             }
           }
-          AddEffectDuration(value) => {
-            computed_stats = {
-              ..computed_stats,
-              effect_duration: computed_stats.effect_duration + value
-            }
+          MultiplyEffectDuration(factor) => {
+            let new_effects = computed_stats.on_hit_effects.map(fn(effect) {
+              match effect {
+                ApplyBuff(buff_type, duration, vfx_opt) => {
+                  OnHitEffect::ApplyBuff(buff_type, duration * factor, vfx_opt)
+                }
+                CreateHazardousArea(tick_effects, radius, duration, vfx_opt) => {
+                  OnHitEffect::CreateHazardousArea(tick_effects, radius, duration * factor, vfx_opt)
+                }
+                other_effect => other_effect
+              }
+            })
+            computed_stats = { ..computed_stats, on_hit_effects: new_effects }
           }
           MultiplyCooldown(factor) => {
             computed_stats = {
@@ -126,10 +134,12 @@ fn get_computed_movement_stats(unit: @system.Entity) -> Option[MovementStats] {
       for buff in buff_list {
         match buff.buff_type {
           MultiplySpeed(factor) => {
+            println("[Log] Unit \{unit} is applying MultiplySpeed buff! Factor: \{factor}, Base Speed: \{computed_stats.speed}")
             computed_stats = { 
               ..computed_stats, 
               speed: computed_stats.speed * factor 
             }
+            println("[Log] Unit \{unit} new computed speed: \{computed_stats.speed}")
           }
           _ => () 
         }

@@ -62,7 +62,6 @@ fn add_new_ball(pos: @math.Vec2D, team: Team) -> Unit {
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None
@@ -104,7 +103,6 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None
@@ -152,7 +150,6 @@ fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None
@@ -192,7 +189,7 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
       attack_range: 165.0, 
       on_hit_effects: [
         OnHitEffect::CreateHazardousArea(
-          [OnHitEffect::DealDamage(15.0, Some(SpeedLow))], 
+          [OnHitEffect::DealDamage(15.0, Some(BulletImpact)),ApplyBuff(BuffType::MultiplySpeed(0.01), 3.0, Some(SpeedLow))], 
           100.0,
           5.0,
           Some(PoisonCloud)
@@ -203,7 +200,6 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None
@@ -255,7 +251,6 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None
@@ -303,7 +298,6 @@ fn add_new_tank(pos: @math.Vec2D, team: Team) -> Unit {
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None
@@ -334,14 +328,12 @@ fn add_new_soldier(pos: @math.Vec2D, team: Team) -> Unit {
       attack_range: 165.0, 
       on_hit_effects: [
         OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
-        OnHitEffect::ApplyBuff(BuffType::MultiplySpeed(0.2), 3.0, Some(VFX_Type::PoisonCloud))
       ],
       attack_cooldown: 1.0, 
       current_cooldown: 0.0, 
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
-      effect_duration: 0.0, 
       crit_rate:0.1, 
       on_hit_vfx: BulletImpact, 
       area_effect_vfx: None

@@ -19,31 +19,27 @@ const ENEMY_AVOIDANCE_STRENGTH: Double = 1.5
 
 /// 职责：一个函数处理敌人的所有移动逻辑：追击 + 互相避让
 pub fn enemy_movement_system(_backend: &@system.Backend) -> Unit {
-  // 我们需要一个临时的 Map 来存储每个单位计算出的最终速度
-  // 这样做是为了避免在一个循环中同时读取和写入 @velocity.velocities
   let final_velocities: Map[@system.Entity, @math.Vec2D] = Map::new()
 
-  // --- 阶段一：为每个敌人计算它这一帧的最终速度 ---
   for entity in all_units.val {
     if teams.get(entity) is Some(Team::Enemy) {
-      
-      // 1. 计算“意图速度”(追击玩家或停下)
-      let mut intent_vel = @math.Vec2D(0.0, 0.0)
+
+      // 1. 计算“意图方向”(追击目标的方向)
+      let mut intent_direction = @math.Vec2D::zero()
       if attack_targets.get(entity) is Some(target) {
-         if @position.positions.get(entity) is Some(enemy_pos) &&
-            @position.positions.get(target) is Some(target_pos) &&
-            combat_stats.get(entity) is Some(combat_stats) &&
-            get_computed_movement_stats(entity) is Some(move_stats)  {
+          if @position.positions.get(entity) is Some(enemy_pos) &&
+             @position.positions.get(target) is Some(target_pos) &&
+             combat_stats.get(entity) is Some(combat_stats) {
             
             if enemy_pos.0.distance_to(target_pos.0) > combat_stats.attack_range {
-                let direction = (target_pos.0 - enemy_pos.0).normalize()
-                intent_vel = direction.scalar_mul(move_stats.speed)
+                // 注意：这里不再乘以速度，只保留方向
+                intent_direction = (target_pos.0 - enemy_pos.0).normalize()
             }
-         }
+          }
       }
 
-      // 2. 计算“避障速度”(被其他敌人推开)
-      let mut avoidance_vec = @math.Vec2D(0.0, 0.0)
+      // 2. 计算“避障方向”(被其他敌人推开的方向)
+      let mut avoidance_direction = @math.Vec2D::zero()
       if @position.positions.get(entity) is Some(pos_a) {
         for other_enemy in all_units.val {
           if entity != other_enemy && teams.get(other_enemy) is Some(Team::Enemy) {
@@ -53,25 +49,31 @@ pub fn enemy_movement_system(_backend: &@system.Backend) -> Unit {
                 let direction = (pos_a.0 - pos_b.0).normalize()
                 let strength = (ENEMY_AVOIDANCE_RADIUS - distance) / ENEMY_AVOIDANCE_RADIUS
                 let push_force = direction.scalar_mul(strength)
-                avoidance_vec = avoidance_vec + push_force
+                avoidance_direction = avoidance_direction + push_force
               }
             }
           }
         }
       }
 
-      // 3. 合成最终速度，并存入我们的临时 Map
-      let final_vel = intent_vel + avoidance_vec.scalar_mul(ENEMY_AVOIDANCE_STRENGTH)
-      final_velocities.set(entity, final_vel)
+      // 3. 将所有方向的“力”合成，得到最终的“合力方向”
+      let final_direction = intent_direction + avoidance_direction.scalar_mul(ENEMY_AVOIDANCE_STRENGTH)
+
+      let mut final_velocity = @math.Vec2D::zero()
+      if get_computed_movement_stats(entity) is Some(move_stats) {
+          if final_direction.distance() > 0.001 {
+            final_velocity = final_direction.normalize().scalar_mul(move_stats.speed)
+          }
+      }
+      
+      final_velocities.set(entity, final_velocity)
     }
   }
 
-  // --- 阶段二：将计算好的所有最终速度，一次性应用到 Velocity 组件上 ---
   for entity, final_vel in final_velocities {
     @velocity.velocities.set(entity, final_vel)
   }
 }
-
 
 
 // -- 碰撞常量 --

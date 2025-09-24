@@ -16,7 +16,6 @@ pub struct CombatStats {
   aggro_range: Double
   attack_type: AttackType
   aoe_radius: Double
-  effect_duration: Double
   crit_rate: Double
   on_hit_vfx: VFX_Type 
   area_effect_vfx: Option[VFX_Type] 
@@ -68,6 +67,7 @@ fn combat_system(_backend: &@system.Backend) -> Unit {
               }
               AttackType::Ranged => {
                 //TODO: 实现远程瞬间伤害逻辑
+                execute_bullet_attack(attacker, target, attacker_stats)
                 println("[Log] Ranged Attack not implemented yet.")
               }
               AttackType::AoE => {
