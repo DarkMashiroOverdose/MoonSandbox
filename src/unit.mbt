@@ -36,8 +36,12 @@ fn _connect_player_unit_to_train(new_unit: @system.Entity, team: Team) -> Unit {
 // ---------------------------------
 
 fn add_new_ball(pos: @math.Vec2D, team: Team) -> Unit {
-  let unit_dimensions = @math.Vec2D(32.0, 32.0)
   let new_ball = @system.Entity::new()
+
+  let unit_dimensions = @math.Vec2D(32.0, 32.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_ball, { radius: radius })
+
   @position.positions.set(new_ball, pos)
   movement_stats.set(new_ball, { speed: 3.0 })
   let ball_shape = @sprite.ColoredShape::new(@sprite.Shape::circle(16), @sprite.DrawStyle::fill("pink"))
@@ -77,8 +81,12 @@ fn add_new_ball(pos: @math.Vec2D, team: Team) -> Unit {
 }
 
 fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
-  let unit_dimensions = @math.Vec2D(40.0, 40.0)
   let new_block = @system.Entity::new()
+
+  let unit_dimensions = @math.Vec2D(40.0, 40.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_block, { radius: radius })
+
   @position.positions.set(new_block, pos)
   movement_stats.set(new_block, { speed: 3.0 })
   let block_shape = @sprite.ColoredShape::new(@sprite.Shape::rect(40,40,0), @sprite.DrawStyle::fill("yellow"))
@@ -124,8 +132,12 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
 }
 
 fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
-  let unit_dimensions = @math.Vec2D(20.0, 20.0)
   let new_ellipse = @system.Entity::new()
+
+  let unit_dimensions = @math.Vec2D(40.0, 40.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_ellipse, { radius: radius })
+
   @position.positions.set(new_ellipse, pos)
   movement_stats.set(new_ellipse, { speed: 3.0 })
   let ellipse_shape = @sprite.ColoredShape::new(@sprite.Shape::ellipse(20,16,5), @sprite.DrawStyle::fill("#9E2E16"))
@@ -170,8 +182,12 @@ fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
 }
 
 fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
-  let unit_dimensions = @math.Vec2D(20.0, 20.0)
   let new_triangle = @system.Entity::new()
+
+  let unit_dimensions = @math.Vec2D(40.0, 40.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_triangle, { radius: radius })
+
   @position.positions.set(new_triangle, pos)
   movement_stats.set(new_triangle, { speed: 3.0 })
   let triangle_shape = @sprite.ColoredShape::new(@sprite.Shape::triangle(40,0), @sprite.DrawStyle::fill("#e92cf3ff"))
@@ -213,8 +229,12 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   _connect_player_unit_to_train(new_triangle, team)
 }
 fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
-  let unit_dimensions = @math.Vec2D(40.0, 40.0) 
   let new_triangle = @system.Entity::new()
+
+  let unit_dimensions = @math.Vec2D(30.0, 30.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_triangle, { radius: radius })
+
   @position.positions.set(new_triangle, pos)
   movement_stats.set(new_triangle, { speed: 1.0 })
 

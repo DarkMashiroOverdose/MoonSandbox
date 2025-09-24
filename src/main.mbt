@@ -17,7 +17,10 @@ let drag_box_entity: @system.Entity = @system.Entity::new() // 新增：拖动�
 const FORMATION_SPACING: Double = 50.0 // 单位在队列中的间距
 let entities_to_cleanup: Ref[Array[@system.Entity]] = Ref::new([])
 
-
+pub struct Size {
+  radius: Double
+}
+pub let sizes: Map[@system.Entity, Size] = Map::new()
 
 enum Team {
   Player

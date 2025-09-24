@@ -127,11 +127,13 @@ pub fn projectile_system(_backend: &@system.Backend) -> Unit {
         let mut hit_target = None
         for unit in all_units.val {
             if teams.get(unit) is Some(unit_team) && unit_team != proj_data.source_team {
-                if @position.positions.get(unit) is Some(unit_pos) {
-                    // 简单的碰撞检测：距离小于单位半径 (例如 32.0)
-                    if bullet_pos.0.distance_to(unit_pos.0) < 32.0 {
+                // a. 同时获取单位的位置和尺寸信息
+                if @position.positions.get(unit) is Some(unit_pos) && sizes.get(unit) is Some(unit_size) {
+                    
+                    // b. 碰撞检测距离不再是硬编码，而是使用单位自己的半径
+                    if bullet_pos.0.distance_to(unit_pos.0) < unit_size.radius {
                         hit_target = Some(unit)
-                        break // 只要撞到一个，就停止检查
+                        break 
                     }
                 }
             }

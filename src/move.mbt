@@ -40,14 +40,23 @@ pub fn enemy_movement_system(_backend: &@system.Backend) -> Unit {
 
       // 2. 计算“避障方向”(被其他敌人推开的方向)
       let mut avoidance_direction = @math.Vec2D::zero()
-      if @position.positions.get(entity) is Some(pos_a) {
+      if @position.positions.get(entity) is Some(pos_a) && sizes.get(entity) is Some(size_a) {
+        
         for other_enemy in all_units.val {
-          if entity != other_enemy && teams.get(other_enemy) is Some(Team::Enemy) {
+          // b. 确保是另一个敌人，并且能获取到内层单位 B 的尺寸信息
+          if entity != other_enemy && 
+             teams.get(other_enemy) is Some(Team::Enemy) && 
+             sizes.get(other_enemy) is Some(size_b) {
+            
             if @position.positions.get(other_enemy) is Some(pos_b) {
               let distance = pos_a.0.distance_to(pos_b.0)
-              if distance < ENEMY_AVOIDANCE_RADIUS {
+              // c. 碰撞距离不再是固定值，而是两个单位的半径之和
+              let combined_radius = size_a.radius + size_b.radius
+              
+              if distance < combined_radius {
                 let direction = (pos_a.0 - pos_b.0).normalize()
-                let strength = (ENEMY_AVOIDANCE_RADIUS - distance) / ENEMY_AVOIDANCE_RADIUS
+                // d. 推挤力度也根据新的碰撞距离来计算
+                let strength = (combined_radius - distance) / combined_radius
                 let push_force = direction.scalar_mul(strength)
                 avoidance_direction = avoidance_direction + push_force
               }
