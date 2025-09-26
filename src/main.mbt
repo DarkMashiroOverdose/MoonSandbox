@@ -20,6 +20,11 @@ let entities_to_cleanup: Ref[Array[@system.Entity]] = Ref::new([])
 // --- 新增：用于存储背景音乐句柄的全局变量 ---
 let bgm_handle: Ref[Option[@system.AudioHandle]] = Ref::new(None)
 
+pub struct Size {
+  radius: Double
+}
+pub let sizes: Map[@system.Entity, Size] = Map::new()
+
 enum Team {
   Player
   Enemy
@@ -49,7 +54,9 @@ fn main {
     .add_system(projectile_system, schedule=@system.Schedule::Update) // 5. 抛射物飞行
     .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
     //.add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
-    .add_system(hazardous_area_system, schedule=@system.Schedule::Update) //毒气区域
+    .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
+    .add_system(buff_system, schedule=@system.Schedule::Update) //buff
+    
     .add_system(vfx_spawner_system, schedule=@system.Schedule::Update)
     .add_system(vfx_update_system, schedule=@system.Schedule::Update)
     // --- 执行与反馈层 ---
@@ -98,14 +105,51 @@ fn init_game(backend: &@system.Backend) -> Unit {
   add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)
 }
 
+fn add_repeating_background() -> Unit {
+  let map_width = 2000.0 // 例如，总宽度为 2000 像素
+  let map_height = 1500.0 // 例如，总高度为 1500 像素
+
+  let background_entity = @system.Entity::new()
+
+  @position.positions.set(background_entity, @math.Vec2D::zero())
+
+  let background_picture = @sprite.Picture::new(
+    @math.Vec2D(map_width, map_height),
+    "assets/background_tile.png",
+    repeat=@system.RepeatMode::Repeat,
+  )
+
+  let background_sprite = @sprite.Sprite::from_picture(
+    background_picture, 
+    -100, 
+  )
+
+  @sprite.sprites.set(background_entity, background_sprite)
+}
 fn add_map() -> Unit {
   let map_entity = @system.Entity::new()
-  @position.positions.set(map_entity, @math.Vec2D(0.0, 0.0))
-  let map_picture = @sprite.Picture::new(
-    @math.Vec2D(1048.0, 768.0),
-    "assets/gray_map.png",
+  @position.positions.set(map_entity, @math.Vec2D(-5.0, -5.0))
+  //let map_picture = @sprite.Picture::new(
+  //  @math.Vec2D(1048.0, 768.0), "assets/gray_map.png")
+  //let map_sprite = @sprite.Sprite::from_picture(map_picture, 0)
+  //let map_color = @sprite.ColoredShape::new(@sprite.Shape::rect(1048, 768, 0), @sprite.DrawStyle::fill("#000000"))
+  //let map_sprite = @sprite.Sprite::from_shape(map_color, 100, layer=@sprite.RenderLayer::game_world())
+
+  let background_entity = @system.Entity::new()
+
+  @position.positions.set(background_entity, @math.Vec2D::zero())
+
+  let background_picture = @sprite.Picture::new(
+    @math.Vec2D(1965, 1085),
+    "assets/background_tile.png",
+    repeat=@system.RepeatMode::Repeat,
   )
-  let map_sprite = @sprite.Sprite::from_picture(map_picture, 0)
+
+  let map_sprite = @sprite.Sprite::from_picture(
+    background_picture, 
+    -100, 
+  )
+  
   @sprite.sprites.set(map_entity, map_sprite)
 }
 
