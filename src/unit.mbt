@@ -290,7 +290,130 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
   // unit_to_orientation_indicator.set(new_triangle, indicator)
   _connect_player_unit_to_train(new_triangle, team)
 }
+fn add_rolling_cross(pos: @math.Vec2D, team: Team) -> Unit {
+  let new_cross = @system.Entity::new()
 
+  let unit_dimensions = @math.Vec2D(30.0, 30.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_cross, { radius: radius })
+
+  @position.positions.set(new_cross, pos)
+  movement_stats.set(new_cross, { speed: 1.0 })
+
+  let triangle_shape_geom = @sprite.Shape::cross(80.0, 10.0, 105)
+
+  let triangle_colored_shape = @sprite.ColoredShape::new(
+    triangle_shape_geom, 
+    @sprite.DrawStyle::fill("#710000ff")
+  )
+
+  let triangle_sprite = @sprite.Sprite::from_shape(
+    triangle_colored_shape, 
+    100, 
+    offset = @math.Vec2D(-20.0, -20.0),
+    layer=@sprite.RenderLayer::game_world()
+  )
+  @sprite.sprites.set(new_cross, triangle_sprite)
+
+  let selection_box = attach_selection_box(new_cross, pos, unit_dimensions, team)
+  unit_to_selection_box.set(new_cross, selection_box)
+  let (bar_bg, bar_fg) = attach_health_bar()
+  
+  healths.set(new_cross, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
+  combat_stats.set(
+    new_cross, 
+    { 
+      attack_range: 165.0, 
+      on_hit_effects: [
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        
+      ],
+      attack_cooldown: 1.0, 
+      current_cooldown: 0.0, 
+      aggro_range: 300.0, 
+      attack_type: AttackType::Bullet, 
+      aoe_radius: 10.0,
+      crit_rate:0.1, 
+      on_hit_vfx: BulletImpact, 
+      area_effect_vfx: None
+    }
+  )
+  teams.set(new_cross, team)
+  
+  dynamic_transforms.set(new_cross, {
+    rotation_speed: 2.0,
+    scale_speed: 3.0,
+    scale_amplitude: 0.25,
+    _current_angle: 0.0,
+    _time_elapsed: 0.0,
+  })
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
+  _connect_player_unit_to_train(new_cross, team)
+}
+fn add_rolling_capsule(pos: @math.Vec2D, team: Team) -> Unit {
+  let new_capsule = @system.Entity::new()
+
+  let unit_dimensions = @math.Vec2D(30.0, 30.0)
+  let radius = (unit_dimensions[X] + unit_dimensions[Y]) / 4.0 
+  sizes.set(new_capsule, { radius: radius })
+
+  @position.positions.set(new_capsule, pos)
+  movement_stats.set(new_capsule, { speed: 1.0 })
+
+  let triangle_shape_geom = @sprite.Shape::capsule(40.0, 15.0,)
+
+  let triangle_colored_shape = @sprite.ColoredShape::new(
+    triangle_shape_geom, 
+    @sprite.DrawStyle::fill("#077ab3ff")
+  )
+
+  let triangle_sprite = @sprite.Sprite::from_shape(
+    triangle_colored_shape, 
+    100, 
+    offset = @math.Vec2D(-20.0, -20.0),
+    layer=@sprite.RenderLayer::game_world()
+  )
+  @sprite.sprites.set(new_capsule, triangle_sprite)
+
+  let selection_box = attach_selection_box(new_capsule, pos, unit_dimensions, team)
+  unit_to_selection_box.set(new_capsule, selection_box)
+  let (bar_bg, bar_fg) = attach_health_bar()
+  
+  healths.set(new_capsule, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
+  combat_stats.set(
+    new_capsule, 
+    { 
+      attack_range: 165.0, 
+      on_hit_effects: [
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        
+      ],
+      attack_cooldown: 1.0, 
+      current_cooldown: 0.0, 
+      aggro_range: 300.0, 
+      attack_type: AttackType::Bullet, 
+      aoe_radius: 10.0,
+      crit_rate:0.1, 
+      on_hit_vfx: BulletImpact, 
+      area_effect_vfx: None
+    }
+  )
+  teams.set(new_capsule, team)
+  
+  dynamic_transforms.set(new_capsule, {
+    rotation_speed: 2.0,
+    scale_speed: 3.0,
+    scale_amplitude: 0.25,
+    _current_angle: 0.0,
+    _time_elapsed: 0.0,
+  })
+  // [Debug]附加朝向指示器
+  // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
+  // unit_to_orientation_indicator.set(new_triangle, indicator)
+  _connect_player_unit_to_train(new_capsule, team)
+}
 fn add_new_tank(pos: @math.Vec2D, team: Team) -> Unit {
   let unit_dimensions = @math.Vec2D(64.0, 64.0)
   let new_tank = @system.Entity::new()

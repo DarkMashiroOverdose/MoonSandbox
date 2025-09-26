@@ -53,7 +53,7 @@ fn main {
     .add_system(combat_system, schedule=@system.Schedule::Update) // 4. 战斗结算
     .add_system(projectile_system, schedule=@system.Schedule::Update) // 5. 抛射物飞行
     .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
-    //.add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
+    .add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
     .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
     .add_system(buff_system, schedule=@system.Schedule::Update) //buff
     
@@ -98,9 +98,9 @@ fn init_game(backend: &@system.Backend) -> Unit {
   // 创建敌方单位，放在地图另一侧
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
   add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  add_new_ellipse_x(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  add_new_ellipse_x(@math.Vec2D(500.0, 100.0), Team::Enemy)
-  //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  add_rolling_capsule(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  add_rolling_capsule(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  add_rolling_cross(@math.Vec2D(360.0, 160.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
   add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)
 }
