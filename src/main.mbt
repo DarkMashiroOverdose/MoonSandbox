@@ -41,41 +41,92 @@ fn main {
     .with_canvas_height(600.0)
     .with_fps(60)
     .add_system(init_game, schedule=@system.Schedule::Startup)
-    .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
-    .add_system(@sprite.render_world_system, schedule=@system.Schedule::Render(0)) // 先画世界
-    .add_system(@sprite.render_ui_system, schedule=@system.Schedule::Render(1)) // 再画UI
-    //.add_system(move_order_system, schedule=@system.Schedule::Update)
-    .add_system(player_train_management_system, schedule=@system.Schedule::Update)
-    //.add_system(train_follow_system, schedule=@system.Schedule::Update)
-    .add_system(player_control_system, schedule=@system.Schedule::Update) // 1. 玩家输入，决定火车头速度
-    .add_system(enemy_movement_system, schedule=@system.Schedule::Update) // 2. AI输入，决定敌人速度
-    .add_system(aggro_system, schedule=@system.Schedule::Update) // 3. AI索敌
-    .add_system(combat_system, schedule=@system.Schedule::Update) // 4. 战斗结算
-    .add_system(projectile_system, schedule=@system.Schedule::Update) // 5. 抛射物飞行
-    .add_system(unit_orientation_system, schedule=@system.Schedule::Update) // 状态旋转
-    .add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
-    .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
-    .add_system(buff_system, schedule=@system.Schedule::Update) //buff
-
-    .add_system(endless_spawner_system, schedule=@system.Schedule::Update)
+    // 1. 注册我们的“游戏世界总管”，它包含了所有可暂停的逻辑
+    .add_system(update_game_world_system, schedule=@system.Schedule::Update)
     
-    .add_system(vfx_spawner_system, schedule=@system.Schedule::Update)
-    .add_system(vfx_update_system, schedule=@system.Schedule::Update)
-    // --- 执行与反馈层 ---
-    .add_system(apply_velocity_system, schedule=@system.Schedule::Update) // 6. 应用所有速度，更新所有单位的【新位置】
-    .add_system(path_history_system, schedule=@system.Schedule::Update) // 7. 录制所有玩家单位的【新位置】
-    .add_system(train_snake_follow_system, schedule=@system.Schedule::Update) // 8. 【核心】根据新轨迹，直接设置车厢的【最终位置】
-    // --- UI 与清理层 ---
-    //.add_system(update_orientation_indicators_system, schedule=@system.Schedule::Update)
-    .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
-    .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
-    .add_system(cleanup_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_key_system, schedule=@system.Schedule::Update)
     .add_system(@system.advanced_mouse_system, schedule=@system.Schedule::Update)
+
+    .add_system(pause_toggle_system, schedule=@system.Schedule::Update)
+
+    .add_system(update_selection_boxes_system, schedule=@system.Schedule::Update)
+    .add_system(update_health_bars_system, schedule=@system.Schedule::Update)
+
+    .add_system(@sprite.render_world_system, schedule=@system.Schedule::Render(0)) // 先画世界
+    .add_system(@sprite.render_ui_system, schedule=@system.Schedule::Render(1)) // 再画UI
+    
     .run()
 }
+let is_paused: Ref[Bool] = Ref::new(false)
+
+// --- 暂停控制系统 ---
+
+// 这个系统专门监听暂停键，并且不应该被暂停
+pub fn pause_toggle_system(_backend: &@system.Backend) -> Unit {
+  // 检查玩家是否“刚刚按下”了 P 键
+  if @system.is_just_pressed(@system.KeyP) {
+    // 对 is_paused 的值进行取反 (true -> false, false -> true)
+    is_paused.val = !is_paused.val
+    
+    if is_paused.val {
+      println("[Game] Paused")
+    } else {
+      println("[Game] Resumed")
+    }
+  }
+}
+
+// --- 游戏世界总管系统 ---
+
+// 这是所有“可暂停”的游戏逻辑系统的总入口
+pub fn update_game_world_system(backend: &@system.Backend) -> Unit {
+  guard !is_paused.val else { return }
+
+  // 管理玩家小火车的连接状态
+  player_train_management_system(backend)
+  // 玩家输入，决定火车头的移动方向
+  player_control_system(backend)
+  // AI输入，决定敌人的移动方向
+  enemy_movement_system(backend)
+  // AI索敌，决定攻击目标
+  aggro_system(backend)
+  // 战斗结算，根据攻击目标和冷却，触发攻击效果
+  combat_system(backend)
+  // 更新所有飞行中的抛射物（子弹）的位置和方向
+  projectile_system(backend)
+  // 更新单位的视觉朝向（让Sprite朝向目标或移动方向）
+  unit_orientation_system(backend)
+  // 更新所有需要动态旋转/缩放的单位
+  dynamic_transform_system(backend)
+  // 更新所有持续伤害/效果区域
+  hazardous_area_system(backend)
+  // 更新所有Buff的持续时间
+  buff_system(backend)
+  // 根据时间生成新的敌人
+  endless_spawner_system(backend)
+  
+  // 处理所有VFX的生成请求和生命周期
+  vfx_spawner_system(backend)
+  vfx_update_system(backend)
+
+  // 这个阶段将所有单位的“意图”转化为实际的位置变化
+  
+  // 将所有单位的`velocity`应用到它们的`position`上
+  apply_velocity_system(backend)
+  // 为玩家小火车记录轨迹点
+  path_history_system(backend)
+  // 让车厢根据轨迹点进行跟随
+  train_snake_follow_system(backend)
+
+  // 移除所有被标记为“死亡”的实体和它们的组件
+  cleanup_system(backend)
+}
+
+
+
 
 // ---------------------------------
+
 //  初始化 (Initialization)
 // ---------------------------------
 fn init_game(backend: &@system.Backend) -> Unit {
