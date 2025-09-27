@@ -56,6 +56,8 @@ fn main {
     .add_system(dynamic_transform_system, schedule=@system.Schedule::Update) // 旋转测试
     .add_system(hazardous_area_system, schedule=@system.Schedule::Update)//毒气区域
     .add_system(buff_system, schedule=@system.Schedule::Update) //buff
+
+    .add_system(endless_spawner_system, schedule=@system.Schedule::Update)
     
     .add_system(vfx_spawner_system, schedule=@system.Schedule::Update)
     .add_system(vfx_update_system, schedule=@system.Schedule::Update)
@@ -95,14 +97,17 @@ fn init_game(backend: &@system.Backend) -> Unit {
   add_new_ball(@math.Vec2D(350.0, 500.0), Team::Player)
   add_new_triangle(@math.Vec2D(350.0, 500.0), Team::Player)
 
+
+  spawn_timer.val = INITIAL_SPAWN_INTERVAL
+  wave_count.val = 0
   // 创建敌方单位，放在地图另一侧
   //add_new_tank(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
-  add_rolling_capsule(@math.Vec2D(300.0, 100.0), Team::Enemy)
-  add_rolling_capsule(@math.Vec2D(500.0, 100.0), Team::Enemy)
-  add_rolling_cross(@math.Vec2D(360.0, 160.0), Team::Enemy)
+  //add_new_ellipse_x(@math.Vec2D(400.0, 100.0), Team::Enemy)
+  ///add_rolling_capsule(@math.Vec2D(300.0, 100.0), Team::Enemy)
+  //add_rolling_capsule(@math.Vec2D(500.0, 100.0), Team::Enemy)
+  //add_rolling_cross(@math.Vec2D(360.0, 160.0), Team::Enemy)
   //add_new_tank(@math.Vec2D(500.0, 100.0), Team::Enemy)
-  add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)
+  //add_rolling_triangle(@math.Vec2D(500.0, 200.0), Team::Enemy)
 }
 
 fn add_repeating_background() -> Unit {

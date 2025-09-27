@@ -223,3 +223,31 @@ fn relink_train_chain(dead_unit: @system.Entity) -> Unit {
     }
   }
 }
+
+fn _connect_player_unit_to_train(new_unit: @system.Entity, team: Team) -> Unit {
+  // 1. 将单位添加到全局单位列表中
+  all_units.val.push(new_unit)
+
+  // 2. 检查单位阵营
+  if team == Team::Player {
+    // a. 为这个单位创建“轨迹历史”组件，让它能被其他车厢跟随
+    path_histories.set(new_unit, { points: [] })
+
+    // b. 将这个单位连接到小火车的双向链表上
+    if player_head.val is None {
+      // 如果还没有火车头，这个单位就成为火车头
+      player_head.val = Some(new_unit)
+      player_tail.val = Some(new_unit)
+      train_cars.set(new_unit, { prev: None, next: None })
+    } else {
+      // 如果已经有火车了，就将这个单位作为新车厢连接到车尾
+      let current_tail_entity = player_tail.val.unwrap()
+      if train_cars.get(current_tail_entity) is Some(tail_car_comp) {
+        let updated_comp = { ..tail_car_comp, next: Some(new_unit) }
+        train_cars.set(current_tail_entity, updated_comp)
+      }
+      train_cars.set(new_unit, { prev: Some(current_tail_entity), next: None })
+      player_tail.val = Some(new_unit)
+    }
+  }
+}

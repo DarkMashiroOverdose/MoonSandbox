@@ -204,6 +204,21 @@ fn apply_all_effects(source: @system.Entity, target: @system.Entity, effects: Ar
             )
         }
       }
+      AreaOfEffect(effects_in_area, radius, vfx) => {
+        if @position.positions.get(target) is Some(target_pos) && teams.get(source) is Some(source_team) {
+          if vfx is Some(vfx_type) {
+            vfx_requests.val.push({
+              vfx_type: vfx_type,
+              position: target_pos.0,
+              rotation: 0.0,
+            })
+          }
+          apply_effects_in_area(source, target_pos.0, radius, effects_in_area, source_team)
+        }
+      }
+      Knockback(strength) => {
+        apply_knockback(source, target, strength)
+      }
       // ... 未来在这里扩展 ...
     }
   }
@@ -269,7 +284,19 @@ fn apply_effects_in_area(
     }
   }
 }
+fn apply_knockback(source: @system.Entity, target: @system.Entity, strength: Double) -> Unit {
+  // 1. 确保能获取到攻击者和目标的位置
+  if @position.positions.get(source) is Some(source_pos) &&
+     @position.positions.get(target) is Some(target_pos) {
+    
+    // 2. 计算从攻击者指向目标的方向向量
+    let direction = (target_pos.0 - source_pos.0).normalize()
 
+    // 3. 【核心】直接设置目标的速度。这是一个“瞬时”的覆盖效果
+    //    这个速度会在下一帧被AI重新计算，从而产生一个短暂的“被推开”的效果
+    @velocity.velocities.set(target, direction.scalar_mul(strength))
+  }
+}
 pub enum OnHitEffect {
   DealDamage(Double, Option[VFX_Type])              // 造成 xx 点伤害
   ///(buff种类,持续时间)
@@ -281,4 +308,11 @@ pub enum OnHitEffect {
     Double, 
     Option[VFX_Type]                   // 区域持续时间
   )
+  AreaOfEffect(
+    Array[OnHitEffect], // 范围内的“效果工具箱”
+    Double,              // 范围的半径
+    Option[VFX_Type]        // 这个范围效果本身的视觉特效（例如：爆炸）
+  )
+
+  Knockback(Double)
 }

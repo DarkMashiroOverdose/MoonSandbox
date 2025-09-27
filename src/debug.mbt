@@ -151,7 +151,7 @@ pub fn dynamic_transform_system(_backend: &@system.Backend) -> Unit {
           
           // b. 将它们相乘得到最终的变换矩阵
           let final_transform = rotation_transform * scale_transform
-          println("[Log  DynamicTransform]: Entity \{entity}, New Angle: \{new_angle}, Transform A: \{final_transform.a}")
+          //println("[Log  DynamicTransform]: Entity \{entity}, New Angle: \{new_angle}, Transform A: \{final_transform.a}")
           // c. 【核心】直接修改 Sprite 的 transform 字段！
           sprite.transform = final_transform
         }

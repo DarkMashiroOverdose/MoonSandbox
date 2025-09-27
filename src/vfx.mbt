@@ -47,7 +47,7 @@ let explosion_frames: Array[@sprite.AnimationFrame] = @sprite.frames_from_atlas(
   height=150.0,
 )
 
-let explosion_animation: @sprite.Animation = @sprite.Animation::new(explosion_frames, loop_=false, rate=100)
+let explosion_animation: @sprite.Animation = @sprite.Animation::new(explosion_frames, loop_=false, rate=1)
 fn setup_vfx_library() -> Unit {
   // 模板1：一个简单的子弹命中爆炸效果
   vfx_library.set(VFX_Type::BulletImpact, {

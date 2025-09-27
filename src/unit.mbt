@@ -2,33 +2,6 @@
 //  全新的“小火车”连接辅助函数
 // ---------------------------------
 /// 将一个新单位连接到玩家的“小火车”上（如果它是玩家阵营）
-fn _connect_player_unit_to_train(new_unit: @system.Entity, team: Team) -> Unit {
-  // 1. 将单位添加到全局单位列表中
-  all_units.val.push(new_unit)
-
-  // 2. 检查单位阵营
-  if team == Team::Player {
-    // a. 为这个单位创建“轨迹历史”组件，让它能被其他车厢跟随
-    path_histories.set(new_unit, { points: [] })
-
-    // b. 将这个单位连接到小火车的双向链表上
-    if player_head.val is None {
-      // 如果还没有火车头，这个单位就成为火车头
-      player_head.val = Some(new_unit)
-      player_tail.val = Some(new_unit)
-      train_cars.set(new_unit, { prev: None, next: None })
-    } else {
-      // 如果已经有火车了，就将这个单位作为新车厢连接到车尾
-      let current_tail_entity = player_tail.val.unwrap()
-      if train_cars.get(current_tail_entity) is Some(tail_car_comp) {
-        let updated_comp = { ..tail_car_comp, next: Some(new_unit) }
-        train_cars.set(current_tail_entity, updated_comp)
-      }
-      train_cars.set(new_unit, { prev: Some(current_tail_entity), next: None })
-      player_tail.val = Some(new_unit)
-    }
-  }
-}
 
 
 // ---------------------------------
@@ -52,13 +25,14 @@ fn add_new_ball(pos: @math.Vec2D, team: Team) -> Unit {
   unit_to_selection_box.set(new_ball, selection_box)
   let (bar_bg, bar_fg) = attach_health_bar()
   
-  healths.set(new_ball, { current: 100.0, max: 100.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
+  healths.set(new_ball, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
   combat_stats.set(
     new_ball, 
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        OnHitEffect::DealDamage(10.0, Some(SpeedLow)),
+        OnHitEffect::Knockback(15.0)
         
       ],
       attack_cooldown: 1.0, 
@@ -97,16 +71,21 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
   unit_to_selection_box.set(new_block, selection_box)
   let (bar_bg, bar_fg) = attach_health_bar()
   
-  healths.set(new_block, { current: 100.0, max: 100.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
+  healths.set(new_block, { current: 500.0, max: 500.0, bar_bg_entity: bar_bg, bar_fg_entity: bar_fg })
   combat_stats.set(
     new_block, 
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        OnHitEffect::AreaOfEffect(
+          [OnHitEffect::DealDamage(25.0, None),OnHitEffect::Knockback(18.0)],
+          80.0,
+          Some(VFX_Type::BulletImpact), 
+        ),
+        
         
       ],
-      attack_cooldown: 1.0, 
+      attack_cooldown: 0.5, 
       current_cooldown: 0.0, 
       aggro_range: 300.0, 
       attack_type: AttackType::Bullet, 
@@ -118,13 +97,6 @@ fn add_new_block(pos: @math.Vec2D, team: Team) -> Unit {
   )
     teams.set(new_block, team)
 
-  dynamic_transforms.set(new_block, {
-      rotation_speed: 2.0,
-      scale_speed: 3.0,
-      scale_amplitude: 0.25,
-      _current_angle: 0.0,
-      _time_elapsed: 0.0,
-  })
   // [Debug]附加朝向指示器
   // let indicator = attach_orientation_indicator(new_triangle, pos, unit_dimensions)
   // unit_to_orientation_indicator.set(new_triangle, indicator)
@@ -154,7 +126,8 @@ fn add_new_ellipse_x(pos: @math.Vec2D, team: Team) -> Unit {
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
+        OnHitEffect::Knockback(18.0)
         
       ],
       attack_cooldown: 1.0, 
@@ -205,11 +178,12 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
       attack_range: 165.0, 
       on_hit_effects: [
         OnHitEffect::CreateHazardousArea(
-          [OnHitEffect::DealDamage(15.0, Some(BulletImpact)),ApplyBuff(BuffType::MultiplySpeed(0.01), 3.0, Some(SpeedLow))], 
+          [OnHitEffect::DealDamage(15.0, Some(SpeedLow)),ApplyBuff(BuffType::MultiplySpeed(0.01), 3.0, Some(SpeedLow))], 
           100.0,
           5.0,
           Some(PoisonCloud)
-        )
+        ),
+        OnHitEffect::Knockback(18.0)
       ],
       attack_cooldown: 1.0, 
       current_cooldown: 0.0, 
@@ -217,7 +191,7 @@ fn add_new_triangle(pos: @math.Vec2D, team: Team) -> Unit {
       attack_type: AttackType::Bullet, 
       aoe_radius: 10.0,
       crit_rate:0.1, 
-      on_hit_vfx: BulletImpact, 
+      on_hit_vfx: SpeedLow, 
       area_effect_vfx: None
     }
   )
@@ -263,7 +237,8 @@ fn add_rolling_triangle(pos: @math.Vec2D, team: Team) -> Unit {
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
+        OnHitEffect::Knockback(18.0)
         
       ],
       attack_cooldown: 1.0, 
@@ -325,8 +300,8 @@ fn add_rolling_cross(pos: @math.Vec2D, team: Team) -> Unit {
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
-        
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
+        OnHitEffect::Knockback(18.0)
       ],
       attack_cooldown: 1.0, 
       current_cooldown: 0.0, 
@@ -387,7 +362,8 @@ fn add_rolling_capsule(pos: @math.Vec2D, team: Team) -> Unit {
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
+        OnHitEffect::Knockback(8.0)
         
       ],
       attack_cooldown: 1.0, 
@@ -433,7 +409,8 @@ fn add_new_tank(pos: @math.Vec2D, team: Team) -> Unit {
     { 
       attack_range: 165.0, 
       on_hit_effects: [
-        OnHitEffect::DealDamage(10.0, Some(BulletImpact))
+        OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
+        OnHitEffect::Knockback(8.0)
         
       ],
       attack_cooldown: 1.0, 
@@ -471,6 +448,7 @@ fn add_new_soldier(pos: @math.Vec2D, team: Team) -> Unit {
       attack_range: 165.0, 
       on_hit_effects: [
         OnHitEffect::DealDamage(10.0, Some(BulletImpact)),
+        OnHitEffect::Knockback(8.0)
       ],
       attack_cooldown: 1.0, 
       current_cooldown: 0.0, 
